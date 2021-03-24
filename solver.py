@@ -94,11 +94,11 @@ class LinearReactivityRamp(Reactivty):
         return rho_s + t * rho_dot
 
     def analyticPower1DG(self, data_1dg : Data, p0 : float, time : np.array, i0, iff):
-        t = time[i0:iff]
+        dt = time[i0:iff] - time[i0]
         l   = data_1dg.lambda_precursor[0]
         tau = (data_1dg.beff[i0:iff]  - self.rho_s)/ self.rho_dot
-        C   = data_1dg.beff[i0:iff] * l / self.rho_dot
-        return p0 * np.exp(- l * t) * ( tau / ( tau - t))**(-C)
+        C   = data_1dg.beff[i0:iff] * l / self.rho_dot + 1
+        return p0 * np.exp(- l * dt) * ( tau / ( tau - dt))**(C)
 
 class PieceWiseReactivityRamp(Reactivty):
     def __init__(self, times : list, reactivities : list):
@@ -117,13 +117,13 @@ class PieceWiseReactivityRamp(Reactivty):
 
         # set up power
         p = np.zeros(t.shape)
-        p[0] = p0
 
         # solve in each piecewise section
         for i,r in enumerate(self.reactivities):
             i0  =  find(t,self.times[i])[0]
-            iff =  find(t,self.times[i+1])[0]
-            p[i0:iff] =r.analyticPower1DG(data_1dg, p[i0], t, i0, iff)
+            iff =  find(t,self.times[i+1])[0] + 2
+            p[i0:iff] = r.analyticPower1DG(data_1dg, p0, t, i0, iff)
+            p0 = p[iff-1]
 
         return p
 
@@ -159,25 +159,34 @@ class Solver:
 
         return self.reactivity.analyticPower1DG(data_1dg, self.t, self.p[0])
 
-
-
-
-
 class Plotter:
     def __init__(self, time : np.array, xlabel=r"$t$ [s]", ylabel=r"$\frac{p(t)}{p(0)}$ [a.u.]"):
         self.t = time
-        self.xlabel = xlabel
-        font = {'family' : 'normal',
-                'size'   : 18}
-        matplotlib.rc('font', **font)
-        #TODO set up fig
+        self.fig = plt.figure(figsize=(12, 6))
+        self.ax = plt.axes()
 
-    def addPower(self, data : np.array, label : str):
-        pass
+        self.font = { 'family': 'serif',
+                      'color':  'black',
+                      'weight': 'regular',
+                      'size': 12,
+                      }
+
+        self.title_font = { 'family': 'serif',
+                            'color':  'black',
+                            'weight': 'bold',
+                            'size': 12,
+                          }
+
+        self.ax.set_xlabel(xlabel)
+        self.ax.set_ylabel(ylabel)
+
+
+    def addData(self, data : np.array, label : str):
+        self.ax.plot(self.t, data, label=label)
 
     def save(self, fname: str):
-        pass
+        self.ax.legend()
+        self.fig.savefig(fname)
 
-    @classmethod
     def plotReactivityRamp(self, rho : PieceWiseReactivityRamp):
         pass
