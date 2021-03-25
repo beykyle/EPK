@@ -14,27 +14,22 @@ def find(a : np.array , val : float):
     finds the index of the largest value in a that is less than val, assuming a is sorted, or 0
     if val is smaller than any value in a
     '''
-    if   ( val > max(a) ): return len(a) - 1
-    elif ( val < min(a) ): return 0
-    return min(np.argwhere((a - val) > 0 )) - 1
+    if   ( val >= a.max() ): return a.size - 1
+    elif ( val <= a.min() ): return 0
+    return np.argwhere((a - val) > 0 ).min() - 1
 
-def test():
-    aa = np.array([0.01 , 1, 89,  100 ])
-    assert(find(aa,0) == 0)
-    assert(find(aa,0.99) == 0)
-    assert(find(aa,1.001) == 1)
-    assert(find(aa,90) == 2)
-
-test()
 
 class ConstantKineticsData:
-    def __init__(self, precursor_groups : int, mgt=2.6E-5, f_fp=1.0, beff=0.76, gamma_D=0, lambda_H=0.0, ):
+    def __init__(self, mgt=2.6E-5, f_fp=1.0, beff=0.76, gamma_D=0, lambda_H=0.0, precursor_groups=1):
         self.mgt      = mgt
         self.f_fp     = f_fp
         self.beff     = beff
         self.gamma_D  = gamma_D
         self.lambda_H = lambda_H
         self.lambda_precursor = np.ones((precursor_groups,)) * 0.49405
+
+    def precursor_groups():
+        return self.lambda_precursor.shape[0]
 
 class Data:
     def __init__(self, lambda_H ,  beff, mgt, gamma_D, f_fp, lambda_precursor, timesteps):
@@ -54,15 +49,14 @@ class Data:
         assert(lambda_precursor.shape == (self.precursor_groups,))
 
     def collapseGroups(self):
-        if precursor_groups == 1:
+        if self.precursor_groups == 1:
             return self
 
-        new_lambda = np.ones((1,self.timesteps))
-        for i in range(0,self.timesteps):
-            new_lambda[i] = np.mean(self.lambda_precursor[:,i])
+        #TODO weight with precursor group betas (or inverse)
+        new_lambda = np.array([np.mean(self.lambda_precursor)])
 
         return Data(self.lambda_H, self.beff, self.mgt,
-                    self.gamma_D , self.f_fp, self.new_lambda, timesteps)
+                    self.gamma_D , self.f_fp, new_lambda, self.timesteps)
 
     @classmethod
     def buildFromConstant(self, d : ConstantKineticsData, time_grid : np.array):
@@ -73,25 +67,22 @@ class Data:
                      np.ones(grid_shape) * d.mgt ,
                      np.ones(grid_shape) * d.gamma_D ,
                      np.ones(grid_shape) * d.f_fp ,
-                     np.ones(precursor_grid_shape) * d.lambda_precursor ,
+                     d.lambda_precursor ,
                      time_grid.shape[0])
 
+class Reactivity:
+    pass
 
-class Reactivty:
-    def rho(self):
-        return 0
+class ReactivityGrid(Reactivity):
+    def __init__(t : np.array, rho : np.array):
+        assert(t.shape == rho.shape)
+        self.t = t
+        self.rho = rho
 
-    def analyticPower1DG(self, data_1dg : Data, time, p0 : float):
-        print("Analytic solution not available for general reactivity insertion")
-        exit(1)
-
-class LinearReactivityRamp(Reactivty):
-    def __init__(self, rho_0 : float, rho_f : float, time : float):
-        self.rho_s = rho_0
-        self.rho_dot = (rho_f - rho_0)/time
-
-    def rho(self, t : float):
-        return rho_s + t * rho_dot
+class LinearReactivityRamp():
+    def __init__(self, rho_0_dollars : float, rho_f_dollars : float, time : float):
+        self.rho_s = rho_0_dollars
+        self.rho_dot = (rho_f_dollars  - rho_0_dollars )/time
 
     def analyticPower1DG(self, data_1dg : Data, p0 : float, time : np.array, i0, iff):
         dt = time[i0:iff] - time[i0]
@@ -100,41 +91,54 @@ class LinearReactivityRamp(Reactivty):
         C   = data_1dg.beff[i0:iff] * l / self.rho_dot + 1
         return p0 * np.exp(- l * dt) * ( tau / ( tau - dt))**(C)
 
-class PieceWiseReactivityRamp(Reactivty):
-    def __init__(self, times : list, reactivities : list):
+    def getRhoGrid(self, time : np.array ):
+        return self.rho_s + self.rho_dot * (time - time[0])
+
+class PieceWiseReactivityRamp(Reactivity):
+    def __init__(self, times : list, reactivities : list, time_grid : np.array):
         self.reactivities = reactivities
         self.times = np.array(times)
+        self.t = time_grid
+        self.rho = self.getRhoGrid()
 
-    def rho(self, t : float):
-        if (t < self.times[0] or t > self.times[-1]): return 0
-        return reactivities[find(self.times, t)].rho(t)
-
-    def analyticPower1DG(self, data_1dg : Data, t : np.array, p0 : float):
+    def analyticPower1DG(self, data_1dg : Data, p0 : float):
         # make sure reactivity ramp happens on a larger time scale than the time step
-        max_dt = np.max(t[1:-1] - t[0:-2])
+        max_dt = np.max(self.t[1:-1] - self.t[0:-2])
         max_ramp_step = np.max(self.times[1:-1] - self.times[0:-2])
         assert(max_dt < max_ramp_step)
 
         # set up power
-        p = np.zeros(t.shape)
+        p = np.zeros(self.t.shape)
 
         # solve in each piecewise section
         for i,r in enumerate(self.reactivities):
-            i0  =  find(t,self.times[i])[0]
-            iff =  find(t,self.times[i+1])[0] + 2
-            p[i0:iff] = r.analyticPower1DG(data_1dg, p0, t, i0, iff)
+            i0  =  find(self.t,self.times[i])
+            iff =  find(self.t,self.times[i+1]) + 2
+            p[i0:iff] = r.analyticPower1DG(data_1dg, p0, self.t, i0, iff)
             p0 = p[iff-1]
 
         return p
 
+    def getRhoGrid(self):
+        rho_grid = np.zeros(self.t.shape)
+        shift = 0
+        for i,r in enumerate(self.reactivities):
+            iff =  find(self.t,self.times[i+1]) + 1 + shift
+            i0  =  find(self.t,self.times[i]) + shift
+            shift = shift + 1
+            rho_grid[i0:iff] = r.getRhoGrid(self.t[i0:iff])
+
+        return rho_grid
 
 class Solver:
-    def __init__(self, data : Data, time : np.array, reactivity : Reactivty):
+    def __init__(self, data : Data, time : np.array, reactivity : Reactivity):
         self.d = data
         self.t = time
         self.timesteps = time.size
         assert(self.t.shape == (self.timesteps,))
+        assert(self.t.shape == reactivity.t.shape)
         self.reactivity = reactivity
+        self.rho_im = reactivity.rho
         # initialize arrays for output quantities
         self.H = np.zeros(time.shape)
         self.p = np.zeros(time.shape)
@@ -153,11 +157,9 @@ class Solver:
             print("Analytic solutions only implemented without feedback")
             exit(1)
 
-        data_1dg = self.d
-        if ( (self.d.precursor_groups != 1) ):
-            data_1dg = self.d.collapseGroups()
+        data_1dg = self.d.collapseGroups()
 
-        return self.reactivity.analyticPower1DG(data_1dg, self.t, self.p[0])
+        return self.reactivity.analyticPower1DG(data_1dg, self.p[0])
 
 class Plotter:
     def __init__(self, time : np.array, xlabel=r"$t$ [s]", ylabel=r"$\frac{p(t)}{p(0)}$ [a.u.]"):
@@ -181,12 +183,26 @@ class Plotter:
         self.ax.set_ylabel(ylabel)
 
 
-    def addData(self, data : np.array, label : str):
-        self.ax.plot(self.t, data, label=label)
+    def addData(self, data : np.array, label=None):
+        if label != None:
+            self.ax.plot(self.t, data, label=label)
+        else:
+            self.ax.plot(self.t, data)
 
     def save(self, fname: str):
         self.ax.legend()
         self.fig.savefig(fname)
 
     def plotReactivityRamp(self, rho : PieceWiseReactivityRamp):
-        pass
+        self.addData(rho.rho)
+
+def test():
+    aa = np.array([0.01 , 1, 89,  100 ])
+    assert(find(aa,0) == 0)
+    assert(find(aa,0.99) == 0)
+    assert(find(aa,1.001) == 1)
+    assert(find(aa,90) == 2)
+    assert(find(aa,89.000001) == 2)
+    assert(find(aa,89) == 2)
+    assert(find(aa,100) == 3)
+
