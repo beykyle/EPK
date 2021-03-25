@@ -134,6 +134,7 @@ class Solver:
     def __init__(self, data : Data, time : np.array, reactivity : Reactivity):
         self.d = data
         self.t = time
+        self.dt = time[1:] - time[:-1] # time step
         self.timesteps = time.size
         assert(self.t.shape == (self.timesteps,))
         assert(self.t.shape == reactivity.t.shape)
@@ -148,9 +149,26 @@ class Solver:
         self.H[0] = self.p[0] * self.d.f_fp[0]
         self.zetas[0,:] = 1/(self.d.lambda_precursor) * self.d.beff[0] * self.p[0]
 
+    def step(self,theta,alpha, n):
+            # perform quadratic precursor integration
+            # calculate delayed source for time step
+            # calculate H
+            # handle feedback
     def solve(self, theta):
         #TODO
-        pass
+        for n in range(1,self.t.size+1):
+            # calculate alpha
+            alpha = 0
+            gamma = 0
+            pnew = step(theta, alpha,n)
+            if ( (pnew - np.exp(alpha * dt[n]) * p[n-1] ) <=
+                 (pnew - p[n-1] - (p[n-1] - p[n-2])/gamma ) ):
+                p[n] = pnew
+            else:
+                p[n]  =step(theta,0,n)
+
+            # perform quadratic precursor integration
+            # calculate delayed source for time step
 
     def analyticPower1DG(self):
         if ( np.any(self.d.lambda_H != 0) or np.any(self.d.gamma_D != 0) ):
