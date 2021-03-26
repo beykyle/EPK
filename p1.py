@@ -3,6 +3,8 @@
 import numpy as np
 
 from solver import *
+import matplotlib.pyplot as plt
+
 
 #
 test()
@@ -31,6 +33,9 @@ rho = PieceWiseReactivityRamp(times , [rho_ramp_up, rho_ramp_down], t)
 # run the solver
 solver = Solver(data,t,rho)
 solver.solve(0.5)
+
+
+exit()
 power_numeric = solver.p
 
 # get the analytic solution
@@ -45,4 +50,5 @@ plot_rx.save("./results/p1_rx.pdf")
 plotter = Plotter(t)
 plotter.addData(power_analytic, label="Analytic")
 plotter.addData(power_numeric,  label="EPKE Solver")
-plotter.save("./results/p1.pdf")
+plt.show()
+#plotter.save("./results/p1.pdf")
