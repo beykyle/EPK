@@ -192,12 +192,15 @@ class Solver:
         self.k0 = lambda x: (1 - np.exp(-x))/x
         self.k1 = lambda x: np.abs(1 - self.k0(x))/x
 
-    def stepPowerFeedback(self):
+    def stepPowerFeedback(self, theta, alpha, n, tau_n, lambda_tilde):
         #TODO
-        p,rho = 0,0
+        rho = 0
         # get a1,b1
+        a1 = self.d.f_fp[n]*self.d.gamma_D*self.dt[n-1]*self.k1(lambda_tilde)
+        print(a1)
         # bet a,b,c
         # solve quadratic for new power
+        exit()
         return p,rho
 
     def stepPower(self, theta, alpha, tau_n):
@@ -230,7 +233,7 @@ class Solver:
             self.Shat[n] =  np.dot(self.d.lambda_precursor[:,n] , zeta_hat)
             self.S[n-1] =  np.dot(self.d.lambda_precursor[:,n-1] , self.zetas[:,n-1])
 
-            pnew = self.stepPower(theta, alpha, n)
+            pnew, self.rho[n] = self.stepPowerFeedback(theta, alpha, n, tau_n, lambda_tilde)
             if ( (pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
                  (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
                 self.p[n] = pnew
