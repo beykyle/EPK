@@ -62,8 +62,17 @@ power_plotter.save("./results/theta_study_nofeedback.pdf")
 react_plotter.save("./results/p1_rx.pdf")
 
 # time step study
-timesteps = [101, 201, 501, 1001, 2001, 5001, 10001]
-l2_diff = []
+timesteps = [6001, 7001, 8001, 9001, 10001, 11001, 12001, 13001, 14001, 15001]
+l2_diff_CN = []
+l2_diff_IMP = []
+RDM_diff_CN = []
+RDM_diff_IMP = []
+def L2(a,b):
+    return np.linalg.norm(a-b) / np.linalg.norm(a)
+
+def relDiffMax(a,b):
+    return (np.max(a) - np.max(b))/np.max(a)
+
 for num_t in timesteps:
     # make new time grid
     t = np.linspace(0,6.0001,num=num_t)
@@ -74,9 +83,22 @@ for num_t in timesteps:
     solver = Solver(data,t,rho)
     power_analytic = solver.analyticPower1DG()
     solver.solve(0.5)
-    l2_diff.append(np.linalg.norm(power_analytic - solver.p))
+    l2_diff_CN.append(L2(power_analytic,solver.p))
+    RDM_diff_CN.append(relDiffMax(power_analytic,solver.p))
+    solver.reset()
+    solver.solve(1.0)
+    l2_diff_IMP.append(L2(power_analytic,solver.p))
+    RDM_diff_IMP.append(relDiffMax(power_analytic,solver.p))
+    solver.solve(1.0)
+    solver.reset()
 
-
-p = Plotter(6.0/np.array(timesteps),  xlabel=r"time step [s]", ylabel=r"$L_2(p_{analytic}, p_{epk})$")
-p.addData(np.array(l2_diff))
+p = Plotter(6.0/np.array(timesteps),  xlabel=r"time step [s]", ylabel=r"$(L_2(p_{analytic} -  p_{epk}))/L_2(p_{analaytic})$")
+p.addData(np.array(l2_diff_CN), marker="kx", label="Crank-Nicholson")
+p.addData(np.array(l2_diff_IMP), marker="yx", label="Implicit", alpha=0.4)
 p.save("./results/time_step.pdf")
+
+p = Plotter(6.0/np.array(timesteps),  xlabel=r"time step [s]", ylabel=r"$(p^{max}_{analytic} -  p^{max}_{epk})/p^{max}_{analaytic}$")
+p.addData(np.array(RDM_diff_CN), marker="kx", label="Crank-Nicholson")
+p.addData(np.array(RDM_diff_IMP), marker="yx",label="Implicit", alpha=0.4)
+p.addData(np.ones((len(RDM_diff_CN),)) * 0.01, label="0.01")
+p.save("./results/time_step_RDM.pdf")
