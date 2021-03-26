@@ -227,7 +227,7 @@ class Solver:
                 gamma = self.dt[n-2]/self.dt[n-1]
             else:
                 alpha = 0
-                gamma = self.dt[0]
+                gamma = 1
 
             #calculate omega and zeta
             lambda_tilde = (self.d.lambda_precursor[:,n] + alpha) * self.dt[n-1]
@@ -247,20 +247,24 @@ class Solver:
             #pnew,rhonew = self.stepPower(theta, alpha, n)
 
             # test if exp transform gives better convergence than linear
-            if ( (pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
-                 (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
-                self.p[n] = pnew
-                #self.rho[n] = rhonew
+            if (n > 1):
+                if ( (pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
+                     (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
+                    self.p[n] = pnew
+                    #self.rho[n] = rhonew
+                else:
+                    #self.p[n], self.rho[n] = self.stepPowerFeedback(theta,0,n)
+                    self.p[n]  = self.stepPower(theta, 0, tau_n, n)
             else:
-                #self.p[n], self.rho[n] = self.stepPowerFeedback(theta,0,n)
-                self.p[n]  = self.stepPower(theta, 0, tau_n, n)
+                self.p[n] = pnew
+
 
             # evaluate new H, G, rho and zetas
             self.H[n] = self.d.f_fp[n] * self.p[n]
             self.G[n] = self.d.mgt[0]/self.d.mgt[n] * get1Gbeff(self.d.beff[:,n]) \
                       * self.p[n] * np.exp(-alpha*self.dt[n-1])
             self.rho[n] = self.rho_im[n] #TODO this is temporary - no feedback
-            self.zetas[:,n] = self.zetas[:,n] #TODO precursor update
+            self.zetas[:,n] = self.p[n] * omega + zeta_hat
 
             # print debug time step info
             if(self.debug):
