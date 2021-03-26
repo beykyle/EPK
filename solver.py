@@ -192,15 +192,39 @@ class Solver:
         self.k0 = lambda x: (1 - np.exp(-x))/x
         self.k1 = lambda x: np.abs(1 - self.k0(x))/x
 
-    def stepPowerFeedback(self, theta, alpha, n, tau_n, lambda_tilde):
-        #TODO
-        rho = 0
+    def stepPowerFeedback(self, theta, alpha, n, tau_n):
         # get a1,b1
-        a1 = self.d.f_fp[n]*self.d.gamma_D*self.dt[n-1]*self.k1(lambda_tilde)
-        print(a1)
+        lambda_H_hat = self.d.lambda_H[n] * self.dt[n-1]
+        lambda_H_tilde = (self.d.lambda_H[n] + alpha)*self.dt[n-1]
+        a1 = self.d.f_fp[n]*self.d.gamma_D[n]*self.dt[n-1]*self.k1(lambda_H_tilde)
+
+        rho_d_nm1 = self.rho[n-1] - self.rho_im[n-1]
+        P0 = 1
+        b1 = self.rho_im[n] + np.exp(-lambda_H_hat)*rho_d_nm1 - P0*self.d.gamma_D[n]*self.dt[n-1] \
+                *self.k0(lambda_H_hat) + np.exp(alpha*self.dt[n-1])*self.dt[n-1]\
+                *self.d.f_fp[n-1]*self.p[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
+
         # bet a,b,c
+        beta_nm1 = get1Gbeff(self.d.beff[:,n-1])
+        a = theta*self.dt[n-1]*a1 / self.d.mgt[n] 
+        temp = (b1 - beta_nm1)/self.d.mgt[n] - alpha
+        b = theta*self.dt[n-1]*(temp  + tau_n / self.d.mgt[0]) - 1
+        temp = (self.rho[n-1] - beta_nm1)/self.d.mgt[n-1] - alpha
+        c = theta*self.dt[n-1]/self.d.mgt[0]*self.Shat[n] + np.exp(alpha*self.dt[n-1])\
+                *((1-theta)*self.dt[n-1]*(temp*self.p[n-1] + self.S[n-1]/self.d.mgt[0]) \
+                + self.p[n-1])
+
         # solve quadratic for new power
-        exit()
+        if a < 0:
+            det = b**2 - 4*a*c
+            p = (-b - np.sqrt(det))/(2*a)
+        elif a == 0:
+            p = c/(-b)
+        else:
+            det = b**2 - 4*a*c
+            p = (-b * np.sqrt(det))/(2*a)
+        rho = a1 * p + b1
+
         return p,rho
 
     def stepPower(self, theta, alpha, tau_n):
@@ -233,19 +257,20 @@ class Solver:
             self.Shat[n] =  np.dot(self.d.lambda_precursor[:,n] , zeta_hat)
             self.S[n-1] =  np.dot(self.d.lambda_precursor[:,n-1] , self.zetas[:,n-1])
 
-            pnew, self.rho[n] = self.stepPowerFeedback(theta, alpha, n, tau_n, lambda_tilde)
+            pnew, rhonew = self.stepPowerFeedback(theta, alpha, n, tau_n)
             if ( (pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
                  (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
                 self.p[n] = pnew
+                self.rho[n] = rhonew
             else:
-                self.p[n]  = self.stepPower(theta,0,n)
+                self.p[n], self.rho[n]  = self.stepPowerFeedback(theta,0,n, tau_n)
 
             # evaluate new H, G, rho and zetas
             self.H[n] = self.d.f_fp[n] * self.p[n]
             self.G[n] = self.d.mgt[0]/self.d.mgt[n] * get1Gbeff(self.d.beff[:,n]) \
                       * self.p[n] * np.exp(-alpha*self.dt[n-1])
             self.rho[n] = self.rho_im[n] #TODO this is temporary - no feedback
-            self.zetas[:,n] = self.zetas[:,n] #TODO precursor update
+            self.zetas[:,n] = self.p[n] * omega + zeta_hat
 
     def analyticPower1DG(self, beta_weighted=True):
         # analytic soln only w/out feedback
