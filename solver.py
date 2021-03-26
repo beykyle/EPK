@@ -168,6 +168,7 @@ def k1(x : float):
 class Solver:
     def __init__(self, data : Data, time : np.array, reactivity : Reactivity, debug=False):
         self.debug = debug
+        print(self.debug)
         self.d = data
         self.t = time
         self.dt = time[1:] - time[:-1] # time step
@@ -193,12 +194,39 @@ class Solver:
         self.k0 = lambda x: (1 - np.exp(-x))/x
         self.k1 = lambda x: np.abs(1 - self.k0(x))/x
 
-    def stepPowerFeedback(self):
-        #TODO
-        p,rho = 0,0
+    def stepPowerFeedback(self, theta, alpha, n, tau_n):
         # get a1,b1
+        lambda_H_hat = self.d.lambda_H[n] * self.dt[n-1]
+        lambda_H_tilde = (self.d.lambda_H[n] + alpha)*self.dt[n-1]
+        a1 = self.d.f_fp[n]*self.d.gamma_D[n]*self.dt[n-1]*self.k1(lambda_H_tilde)
+
+        rho_d_nm1 = self.rho[n-1] - self.rho_im[n-1]
+        P0 = 1
+        b1 = self.rho_im[n] + np.exp(-lambda_H_hat)*rho_d_nm1 - P0*self.d.gamma_D[n]*self.dt[n-1] \
+                *self.k0(lambda_H_hat) + np.exp(alpha*self.dt[n-1])*self.dt[n-1]\
+                *self.d.f_fp[n-1]*self.p[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
+
         # bet a,b,c
+        beta_nm1 = get1Gbeff(self.d.beff[:,n-1])
+        a = theta*self.dt[n-1]*a1 / self.d.mgt[n]
+        temp = (b1 - beta_nm1)/self.d.mgt[n] - alpha
+        b = theta*self.dt[n-1]*(temp  + tau_n / self.d.mgt[0]) - 1
+        temp = (self.rho[n-1] - beta_nm1)/self.d.mgt[n-1] - alpha
+        c = theta*self.dt[n-1]/self.d.mgt[0]*self.Shat[n] + np.exp(alpha*self.dt[n-1])\
+                *((1-theta)*self.dt[n-1]*(temp*self.p[n-1] + self.S[n-1]/self.d.mgt[0]) \
+                + self.p[n-1])
+
         # solve quadratic for new power
+        if a < 0:
+            det = b**2 - 4*a*c
+            p = (-b - np.sqrt(det))/(2*a)
+        elif a == 0:
+            p = c/(-b)
+        else:
+            det = b**2 - 4*a*c
+            p = (-b * np.sqrt(det))/(2*a)
+        rho = a1 * p + b1
+
         return p,rho
 
     def stepPower(self, theta : float, alpha : float, tau_n : float, n : int):
@@ -244,7 +272,7 @@ class Solver:
 
             # calculate new power
             pnew = self.stepPower(theta, alpha, tau_n, n)
-            #pnew,rhonew = self.stepPower(theta, alpha, n)
+            #pnew, rhonew = self.stepPowerFeedback(theta, alpha, n, tau_n)
 
             # test if exp transform gives better convergence than linear
             if (n > 1):
@@ -253,9 +281,10 @@ class Solver:
                     self.p[n] = pnew
                     #self.rho[n] = rhonew
                 else:
-                    #self.p[n], self.rho[n] = self.stepPowerFeedback(theta,0,n)
-                    self.p[n]  = self.stepPower(theta, 0, tau_n, n)
+                    self.p[n] = self.stepPower(theta, 0, tau_n, n)
+                    #self.p[n], self.rho[n] = self.stepPowerFeedback(theta,0,n,tau_n)
             else:
+                #TODO what is reactivity in this case?
                 self.p[n] = pnew
 
 

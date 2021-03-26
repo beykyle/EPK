@@ -33,10 +33,12 @@ rho = PieceWiseReactivityRamp(times , [rho_ramp_up, rho_ramp_down], t)
 
 # run the solver
 solver = Solver(data,t,rho, debug=True)
+data.gamma_D += 0#-1.2 #changing these for development
+data.lambda_H += 0#1 #changing these for development
+solver = Solver(data,t,rho, debug=True)
 solver.solve(0.5)
 
 power_numeric = solver.p
-
 # get the analytic solution
 power_analytic = solver.analyticPower1DG()
 
@@ -47,7 +49,6 @@ plot_rx.save("./results/p1_rx.pdf")
 
 # compare analytic and numeric power with the plotter
 plotter = Plotter(t)
-plotter.addData(power_analytic, label="Analytic", marker="x")
-plotter.addData(power_numeric,  label="EPKE Solver", marker="--")
-#plt.show()
+plotter.addData(power_analytic, label="Analytic", marker="--")
+plotter.addData(power_numeric,  label="EPKE Solver", marker="x")
 plotter.save("./results/p1.pdf")
