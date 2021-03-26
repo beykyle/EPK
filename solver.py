@@ -19,41 +19,62 @@ def find(a : np.array , val : float):
     return np.argwhere((a - val) > 0 ).min() - 1
 
 
-class ConstantKineticsData:
-    def __init__(self, mgt=2.6E-5, f_fp=1.0, beff=0.76, gamma_D=0, lambda_H=0.0, precursor_groups=1):
-        self.mgt      = mgt
-        self.f_fp     = f_fp
-        self.beff     = beff
-        self.gamma_D  = gamma_D
-        self.lambda_H = lambda_H
-        self.lambda_precursor = np.ones((precursor_groups,)) * 0.49405
+def get1Gbeff(beff : np.array):
+    return np.sum(beff)
 
-    def precursor_groups():
-        return self.lambda_precursor.shape[0]
+def betaWeightedLambda(beff : np.array , lambda_precursor : np.array):
+    return np.dot(self.beff , self.lambda_precursor) / get1Gbeff(beff)
+
+def invBetaWeightedLambda(beff : np.array, lambda_precursor : np.array):
+    return get1Gbeff(beff) / np.dot(self.beff , 1.0/self.lambda_precursor)
+
+def rho2Dollars(beff : np.array, rho : np.array):
+    assert(beff.shape[1] == rho.size)
+    beff1G = np.zeros(beff.shape[1])
+    for i in range(beff.shape[1]):
+        beff1G[i] = get1Gbeff(beff[:,i])
+    return np.multiply(rho,  1.0/beff1G)
+
+class ConstantKineticsData:
+    def __init__(self, mgt=2.6E-5, f_fp=1.0, gamma_D=0, lambda_H=0.0,beff=np.array([0.76]), lambda_precursor=np.array([0.49405])):
+        self.mgt              = mgt
+        self.f_fp             = f_fp
+        self.gamma_D          = gamma_D
+        self.lambda_H         = lambda_H
+        self.beff             = beff
+        self.lambda_precursor = lambda_precursor
+        assert(self.lambda_precursor.size == self.beff.size)
+        self.precursor_groups = self.lambda_precursor.size
 
 class Data:
-    def __init__(self, lambda_H ,  beff, mgt, gamma_D, f_fp, lambda_precursor, timesteps):
+    def __init__(self, lambda_H, mgt, gamma_D, f_fp, lambda_precursor, beff, timesteps):
         self.lambda_H = lambda_H
-        self.beff = beff
         self.mgt = mgt
         self.gamma_D = gamma_D
         self.f_fp = f_fp
         self.lambda_precursor = lambda_precursor
         self.precursor_groups = lambda_precursor.shape[0]
+        self.beff =  beff
         self.timesteps = timesteps
         assert(lambda_H.shape == (timesteps,))
-        assert(beff.shape     == (timesteps,))
         assert(mgt.shape      == (timesteps,))
         assert(gamma_D.shape  == (timesteps,))
         assert(f_fp.shape     == (timesteps,))
-        assert(lambda_precursor.shape == (self.precursor_groups,))
+        assert(beff.shape             == (self.precursor_groups, timesteps))
+        assert(lambda_precursor.shape == (self.precursor_groups, timesteps))
 
-    def collapseGroups(self):
+    def collapseGroups(self, beta_weighted=True):
         if self.precursor_groups == 1:
             return self
 
-        #TODO weight with precursor group betas (or inverse)
-        new_lambda = np.array([np.mean(self.lambda_precursor)])
+        new_lambda = np.zeros((self.timesteps,))
+        new_beff   = np.zeros(self.timesteps,)
+        for i in range(self.timesteps):
+            new_beff[i] = get1Gbeff(self.beff[:,i])
+            if beta_weighted:
+                new_lambda[i] = betaWeightedLambda(self.beff[:,i],self.lambda_precursor[:,i])
+            else:
+                new_lambda[i] = invBetaWeightedLambdab(self.beff[:,i],self.lambda_precursor[:,i])
 
         return Data(self.lambda_H, self.beff, self.mgt,
                     self.gamma_D , self.f_fp, new_lambda, self.timesteps)
@@ -61,13 +82,20 @@ class Data:
     @classmethod
     def buildFromConstant(self, d : ConstantKineticsData, time_grid : np.array):
         grid_shape = time_grid.shape
-        precursor_grid_shape = d.lambda_precursor.shape
+        precursor_grid_shape = (d.lambda_precursor.size,time_grid.size)
+        beff = np.zeros(precursor_grid_shape)
+        lambda_precursor = np.zeros(precursor_grid_shape)
+
+        for i in range(time_grid.size):
+            beff[:,i] = d.beff
+            lambda_precursor[:,i] = d.lambda_precursor
+
         return Data( np.ones(grid_shape) * d.lambda_H ,
-                     np.ones(grid_shape) * d.beff ,
                      np.ones(grid_shape) * d.mgt ,
                      np.ones(grid_shape) * d.gamma_D ,
                      np.ones(grid_shape) * d.f_fp ,
-                     d.lambda_precursor ,
+                     lambda_precursor,
+                     beff,
                      time_grid.shape[0])
 
 class Reactivity:
@@ -86,9 +114,10 @@ class LinearReactivityRamp():
 
     def analyticPower1DG(self, data_1dg : Data, p0 : float, time : np.array, i0, iff):
         dt = time[i0:iff] - time[i0]
-        l   = data_1dg.lambda_precursor[0]
-        tau = (data_1dg.beff[i0:iff]  - self.rho_s)/ self.rho_dot
-        C   = data_1dg.beff[i0:iff] * l / self.rho_dot + 1
+        l   = data_1dg.lambda_precursor[0,i0:iff]
+        beff = data_1dg.beff[0,i0:iff]
+        tau = (beff  - self.rho_s)/ self.rho_dot
+        C   = beff * l / self.rho_dot + 1
         return p0 * np.exp(- l * dt) * ( tau / ( tau - dt))**(C)
 
     def getRhoGrid(self, time : np.array ):
@@ -130,6 +159,12 @@ class PieceWiseReactivityRamp(Reactivity):
 
         return rho_grid
 
+def k0(x : float):
+    return 1. - x/2 + x**2/6  - x**3/24 + x**4/120- x**5/720 + x**6/5040
+
+def k1(x : float):
+    return 0.5 - x/6 + x**2/24  - x**3/120 + x**4/720- x**5/5040 + x**6/40320
+
 class Solver:
     def __init__(self, data : Data, time : np.array, reactivity : Reactivity):
         self.d = data
@@ -141,41 +176,50 @@ class Solver:
         self.reactivity = reactivity
         self.rho_im = reactivity.rho
         # initialize arrays for output quantities
-        self.H = np.zeros(time.shape)
-        self.p = np.zeros(time.shape)
+        self.H   = np.zeros(time.shape)
+        self.p   = np.zeros(time.shape)
+        self.rho = np.zeros(time.shape)
         self.zetas = np.zeros((self.timesteps,data.precursor_groups))
         # set initial conditions
         self.p[0] = 1
         self.H[0] = self.p[0] * self.d.f_fp[0]
-        self.zetas[0,:] = 1/(self.d.lambda_precursor) * self.d.beff[0] * self.p[0]
+        self.zetas[0,:] = np.multiply( 1.0/ self.d.lambda_precursor[:,0] , self.d.beff[:,0]) * self.p[0]
 
-    def step(self,theta,alpha, n):
-            # perform quadratic precursor integration
-            # calculate delayed source for time step
-            # calculate H
-            # handle feedback
+    def step(self, theta, alpha, n):
+        pass
+        # calculate H
+        # handle feedback
+
     def solve(self, theta):
-        #TODO
+        return
+        p[1] = p[0]
         for n in range(1,self.t.size+1):
             # calculate alpha
-            alpha = 0
-            gamma = 0
-            pnew = step(theta, alpha,n)
-            if ( (pnew - np.exp(alpha * dt[n]) * p[n-1] ) <=
-                 (pnew - p[n-1] - (p[n-1] - p[n-2])/gamma ) ):
-                p[n] = pnew
+            alpha = np.log(self.p[n-1]/self.p[n-2])/self.dt[n]
+            gamma = dt[n]/dt[n-1]
+            pnew = step(theta, alpha, n)
+            if ( (pnew - np.exp(alpha * self.dt[n]) * self.p[n-1] ) <= \
+                 (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
+                self.p[n] = pnew
             else:
-                p[n]  =step(theta,0,n)
+                self.p[n] = step(theta, 0, n)
 
             # perform quadratic precursor integration
+            lambda_tilde = (self.lambda_precursor + alpha)*self.dt[n]
             # calculate delayed source for time step
 
-    def analyticPower1DG(self):
-        if ( np.any(self.d.lambda_H != 0) or np.any(self.d.gamma_D != 0) ):
-            print("Analytic solutions only implemented without feedback")
-            exit(1)
+            # evaluate new H, rho and zetas
+            self.H[n] = self.f_fp[n] * self.p[n]
+            self.rho[n] = self.rho_im[n] #TODO this is temporary - no feedback
+            self.zetas[n,:] = self.zetas[n,:] #TODO precursor update
 
-        data_1dg = self.d.collapseGroups()
+    def analyticPower1DG(self, beta_weighted=True):
+        # analytic soln only w/out feedback
+        assert(not np.any(self.d.lambda_H != 0))
+        assert(not np.any(self.d.gamma_D != 0))
+
+        # collapse to 1G
+        data_1dg = self.d.collapseGroups(beta_weighted=beta_weighted)
 
         return self.reactivity.analyticPower1DG(data_1dg, self.p[0])
 
@@ -211,8 +255,8 @@ class Plotter:
         self.ax.legend()
         self.fig.savefig(fname)
 
-    def plotReactivityRamp(self, rho : PieceWiseReactivityRamp):
-        self.addData(rho.rho)
+    def plotReactivityRamp(self, rho : PieceWiseReactivityRamp, beff : np.array):
+        self.addData( rho2Dollars( beff, rho.rho) )
 
 def test():
     aa = np.array([0.01 , 1, 89,  100 ])
