@@ -37,6 +37,10 @@ data.lambda_H += 0#1 #changing these for development
 solver = Solver(data,t,rho)
 solver.solve(0.5)
 
+plt.plot(solver.t, solver.p, "k")
+plt.show()
+exit()
+
 power_numeric = solver.p
 # get the analytic solution
 power_analytic = solver.analyticPower1DG()
