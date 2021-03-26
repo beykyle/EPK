@@ -166,7 +166,8 @@ def k1(x : float):
     return 0.5 - x/6 + x**2/24  - x**3/120 + x**4/720- x**5/5040 + x**6/40320
 
 class Solver:
-    def __init__(self, data : Data, time : np.array, reactivity : Reactivity):
+    def __init__(self, data : Data, time : np.array, reactivity : Reactivity, debug=False):
+        self.debug = debug
         self.d = data
         self.t = time
         self.dt = time[1:] - time[:-1] # time step
@@ -200,12 +201,25 @@ class Solver:
         # solve quadratic for new power
         return p,rho
 
-    def stepPower(self, theta, alpha, tau_n):
+    def stepPower(self, theta : float, alpha : float, tau_n : float, n : int):
         p = 0
-        # eq 21
-        return p
+        beff_nm1 = get1Gbeff(self.d.beff[:,n-1])
+        beff_n   = get1Gbeff(self.d.beff[:,n])
+        num = np.exp(alpha * self.dt[n-1]) \
+            * (self.p[n-1] + (1-theta) * self.dt[n-1]  \
+                * (((self.rho[n-1] - beff_nm1)/self.d.mgt[n-1] - alpha) \
+                       * self.p[n-1]  + self.S[n-1] / self.d.mgt[0] \
+                  ) \
+              ) \
+            + theta * self.dt[n-1] * self.Shat[n] / self.d.mgt[0]
+        den = 1 - theta * self.dt[n-1] \
+            * ((self.rho[n] - beff_n)/self.d.mgt[n] - alpha + tau_n/self.d.mgt[0])
+        return num/den
 
     def solve(self, theta):
+        if (self.debug):
+            print("n\tt(s) \tdt   \ta_n  \tl_t  \tz_n  \trho_n\tp_n  ")
+
         for n in range(1,self.t.size):
             # calculate alpha
             if n > 1:
@@ -218,10 +232,10 @@ class Solver:
             #calculate omega and zeta
             lambda_tilde = (self.d.lambda_precursor[:,n] + alpha) * self.dt[n-1]
             omega = self.d.mgt[0]/self.d.mgt[n] * self.d.beff[:,n] * self.dt[n-1] \
-                  * self.k1(lambda_tilde)
+                  * k1(lambda_tilde)
             zeta_hat = np.exp(-self.d.lambda_precursor[:,n]*self.dt[n-1])*self.zetas[:,n-1] \
                      + np.exp(alpha*self.dt[n-1]) * self.dt[n-1] * self.G[n-1] \
-                     * (self.k0(lambda_tilde) - self.k1(lambda_tilde))
+                     * (k0(lambda_tilde) - k1(lambda_tilde))
 
             # calculate tau_n, Shat_n, S_(n-1)
             tau_n = np.dot(self.d.lambda_precursor[:,n] , omega)
@@ -229,7 +243,7 @@ class Solver:
             self.S[n-1] =  np.dot(self.d.lambda_precursor[:,n-1] , self.zetas[:,n-1])
 
             # calculate new power
-            pnew = self.stepPower(theta, alpha, n)
+            pnew = self.stepPower(theta, alpha, tau_n, n)
             #pnew,rhonew = self.stepPower(theta, alpha, n)
 
             # test if exp transform gives better convergence than linear
@@ -239,7 +253,7 @@ class Solver:
                 #self.rho[n] = rhonew
             else:
                 #self.p[n], self.rho[n] = self.stepPowerFeedback(theta,0,n)
-                self.p[n]  = self.stepPower(theta,0,n)
+                self.p[n]  = self.stepPower(theta, 0, tau_n, n)
 
             # evaluate new H, G, rho and zetas
             self.H[n] = self.d.f_fp[n] * self.p[n]
@@ -247,6 +261,13 @@ class Solver:
                       * self.p[n] * np.exp(-alpha*self.dt[n-1])
             self.rho[n] = self.rho_im[n] #TODO this is temporary - no feedback
             self.zetas[:,n] = self.zetas[:,n] #TODO precursor update
+
+            # print debug time step info
+            if(self.debug):
+                print("{}\t{:1.5f}\t{:1.5f}\t{:1.5f}\t{:1.5f}\t{:1.5f}\t{:1.5f}\t{:1.5f}"
+                        .format(n, self.t[n], self.dt[n-1], alpha, lambda_tilde[0],
+                                self.zetas[0,n], self.rho[n], self.p[n])
+                )
 
     def analyticPower1DG(self, beta_weighted=True):
         # analytic soln only w/out feedback
@@ -280,9 +301,9 @@ class Plotter:
         self.ax.set_ylabel(ylabel)
 
 
-    def addData(self, data : np.array, label=None):
+    def addData(self, data : np.array, label=None, marker="-"):
         if label != None:
-            self.ax.plot(self.t, data, label=label)
+            self.ax.plot(self.t, data, marker, label=label)
         else:
             self.ax.plot(self.t, data)
 
