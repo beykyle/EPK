@@ -226,8 +226,6 @@ class Solver:
             p = (-b * np.sqrt(det))/(2*a)
         rho = a1 * p + b1
 
-        print(n, p, rho)
-
         return p,rho
 
     def stepPower(self, theta : float, alpha : float, tau_n : float, n : int):
