@@ -150,15 +150,20 @@ class Solver:
         self.zetas[0,:] = 1/(self.d.lambda_precursor) * self.d.beff[0] * self.p[0]
 
         self.k0 = lambda x: (1 - np.exp(-x))/x
-        self.k1 = lambda x: np.abs(1 - k0(x))/x
-
+        self.k1 = lambda x: np.abs(1 - self.k0(x))/x
 
     def step(self, theta, alpha, n):
             # perform quadratic precursor integration
             # calculate delayed source for time step
             # calculate H
             # handle feedback
-            lambda_tilde
+        w = 1/np.exp(self.lambda_precursor)
+        lambda_tilde = (self.d.lambda_precursor + alpha) * self.dt[n-1]
+        omega = self.d.mgt/self.d.mgt * self.d.beff[n] * self.dt[n-1] * self.k1(lambda_tilde)
+        zeta_hat = w*self.zetas[n-1] + w*self.d.mgt*self.p[n-1]*self.beff[n-1]/self.mgt \
+                *(self.k0(self.lambda_precursor) - 
+        print(omega)
+            #lambda_tilde = 
         return 1
     def solve(self, theta):
         for n in range(1,self.t.size):
