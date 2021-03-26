@@ -35,16 +35,26 @@ rho_ramp_up = LinearReactivityRamp(0,0.5 * d.beff, 1) # 0$ -> 0.5$ in 1s
 rho_ramp_down = LinearReactivityRamp(0.5 * d.beff, 0, 5) #0.5$ -> 0$ in 5 s
 rho = PieceWiseReactivityRamp(times , [rho_ramp_up, rho_ramp_down], t)
 
-#compare feedback
-p = Plotter(t)
+#initialize solver
+solver = Solver(data, t, rho)
 
-fig, ax = plt.subplots(1,1)
-cs = ["k", "b", "r", "purple", "g"]
+#compare feedback
+power_plotter = Plotter(t)
+react_plotter = Plotter(t, ylabel=r"$\rho$ [\$]")
+
+# add analytic solns to plotter
+power_plotter.addData(solver.analyticPower1DG(), label=r"analytic, $\gamma_D = 0$", marker="k--")
+react_plotter.plotReactivityRamp(rho, data.beff, label=r"$\rho_{im}$", marker="k--")
+
+cs = ["c--", "b", "r", "purple", "g"]
 for i, gamma_D in enumerate([0, .3, 1., 2., 6]):
-    solver = Solver(data, t, rho)
     solver.d.lambda_H += 1
     solver.d.gamma_D += -gamma_D
     solver.solve(0.5, feedback=True)
-    p.addData(solver.p, label=r"$\gamma_d$ = %.1f"%gamma_D, marker=cs[i])
+    power_plotter.addData(solver.p, label=r"$\gamma_D$ = %.1f"%gamma_D, marker=cs[i])
+    # plot reactivity in dollars
+    beff = np.sum(data.beff,axis=0)
+    react_plotter.addData(solver.rho / beff, label=r"$\gamma_D$ = %.1f"%gamma_D, marker=cs[i])
 
-p.save("./results/gamma_study.pdf")
+power_plotter.save("./results/gamma_study_power.pdf")
+react_plotter.save("./results/gamma_study_rho.pdf")
