@@ -190,8 +190,8 @@ class Solver:
         self.G[0] = get1Gbeff(self.d.beff[:,0]) * self.p[0]
         self.zetas[0,:] = 1.0/ self.d.lambda_precursor[:,0] * self.d.beff[:,0] * self.p[0]
 
-        self.k0 = lambda x: (1 - np.exp(-x))/x
-        self.k1 = lambda x: np.abs(1 - self.k0(x))/x
+        self.k0 = lambda x: k0(x)
+        self.k1 = lambda x: k1(x)
 
     def stepPowerFeedback(self, theta, alpha, tau_n, n):
         # get a1,b1
@@ -202,7 +202,7 @@ class Solver:
         rho_d_nm1 = self.rho[n-1] - self.rho_im[n-1]
         P0 = 1
         b1 = self.rho_im[n] + np.exp(-lambda_H_hat)*rho_d_nm1 - P0*self.d.gamma_D[n]*self.dt[n-1] \
-                *self.k0(lambda_H_hat) + np.exp(alpha*self.dt[n-1])*self.dt[n-1]\
+                *self.k0(lambda_H_hat) + np.exp(alpha*self.dt[n-1])*self.d.gamma_D[n]*self.dt[n-1]\
                 *self.d.f_fp[n-1]*self.p[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
 
         # bet a,b,c
@@ -225,6 +225,8 @@ class Solver:
             det = b**2 - 4*a*c
             p = (-b * np.sqrt(det))/(2*a)
         rho = a1 * p + b1
+
+        print(n, p, rho)
 
         return p,rho
 
