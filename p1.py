@@ -32,11 +32,12 @@ rho_ramp_down = LinearReactivityRamp(0.5 * d.beff, 0, 5) #0.5$ -> 0$ in 5 s
 rho = PieceWiseReactivityRamp(times , [rho_ramp_up, rho_ramp_down], t)
 
 # run the solver
+data.gamma_D += 0#-1.2 #changing these for development
+data.lambda_H += 0#1 #changing these for development
 solver = Solver(data,t,rho)
 solver.solve(0.5)
 
 power_numeric = solver.p
-
 # get the analytic solution
 power_analytic = solver.analyticPower1DG()
 
