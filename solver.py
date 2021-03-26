@@ -215,26 +215,30 @@ class Solver:
                 alpha = 0
                 gamma = self.dt[0]
 
-            # precursor eqn integration over timestep
             #calculate omega and zeta
-            #all of these are arraya over prec groups
-
             lambda_tilde = (self.d.lambda_precursor[:,n] + alpha) * self.dt[n-1]
-            omega = self.d.mgt[0]/self.d.mgt[n] * self.d.beff[:,n] * self.dt[n-1] * self.k1(lambda_tilde)
+            omega = self.d.mgt[0]/self.d.mgt[n] * self.d.beff[:,n] * self.dt[n-1] \
+                  * self.k1(lambda_tilde)
             zeta_hat = np.exp(-self.d.lambda_precursor[:,n]*self.dt[n-1])*self.zetas[:,n-1] \
                      + np.exp(alpha*self.dt[n-1]) * self.dt[n-1] * self.G[n-1] \
                      * (self.k0(lambda_tilde) - self.k1(lambda_tilde))
 
-            # get tau_n, Shat_n, S_(n-1)
+            # calculate tau_n, Shat_n, S_(n-1)
             tau_n = np.dot(self.d.lambda_precursor[:,n] , omega)
             self.Shat[n] =  np.dot(self.d.lambda_precursor[:,n] , zeta_hat)
             self.S[n-1] =  np.dot(self.d.lambda_precursor[:,n-1] , self.zetas[:,n-1])
 
+            # calculate new power
             pnew = self.stepPower(theta, alpha, n)
+            #pnew,rhonew = self.stepPower(theta, alpha, n)
+
+            # test if exp transform gives better convergence than linear
             if ( (pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
                  (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
                 self.p[n] = pnew
+                #self.rho[n] = rhonew
             else:
+                #self.p[n], self.rho[n] = self.stepPowerFeedback(theta,0,n)
                 self.p[n]  = self.stepPower(theta,0,n)
 
             # evaluate new H, G, rho and zetas
