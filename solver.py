@@ -303,7 +303,6 @@ class Solver:
             self.H[n] = self.d.f_fp[n] * self.p[n]
             self.G[n] = self.d.mgt[0]/self.d.mgt[n] * get1Gbeff(self.d.beff[:,n]) \
                       * self.p[n] * np.exp(-alpha*self.dt[n-1])
-            self.rho[n] = self.rho_im[n] #TODO this is temporary - no feedback
             self.zetas[:,n] = self.p[n] * omega + zeta_hat
 
             # print debug time step info
