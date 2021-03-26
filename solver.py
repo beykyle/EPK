@@ -176,29 +176,35 @@ class Solver:
         self.reactivity = reactivity
         self.rho_im = reactivity.rho
         # initialize arrays for output quantities
-        self.H   = np.zeros(time.shape)
-        self.G = np.zeros(time.shape)
-        self.p   = np.zeros(time.shape)
-        self.rho = np.zeros(time.shape)
-        self.zetas = np.zeros((self.timesteps,data.precursor_groups))
+        self.H     = np.zeros(time.shape)
+        self.G     = np.zeros(time.shape)
+        self.S     = np.zeros(time.shape)
+        self.Shat  = np.zeros(time.shape)
+        self.p     = np.zeros(time.shape)
+        self.zetas = np.zeros((data.precursor_groups,self.timesteps))
+        self.rho   = self.rho_im
         # set initial conditions
         self.p[0] = 1
         self.H[0] = self.p[0] * self.d.f_fp[0]
-        self.G[0] = self.d.beff[0] * self.p[0]
-        self.zetas[0,:] = np.multiply( 1.0/ self.d.lambda_precursor[:,0] , self.d.beff[:,0]) * self.p[0]
+        self.G[0] = get1Gbeff(self.d.beff[:,0]) * self.p[0]
+        self.zetas[0,:] = 1.0/ self.d.lambda_precursor[:,0] * self.d.beff[:,0] * self.p[0]
 
         self.k0 = lambda x: (1 - np.exp(-x))/x
         self.k1 = lambda x: np.abs(1 - self.k0(x))/x
 
-    #def step(self, theta, alpha, n):
-            # perform quadratic precursor integration
-            # calculate delayed source for time step
-            # calculate H
-            # handle feedback
-        #zeta_hat = w*self.zetas[n-1] + w*self.d.mgt*self.p[n-1]*self.beff[n-1]/self.mgt \
-        #        *(self.k0(self.lambda_precursor) -
-        #print(omega)
-            #lambda_tilde =
+    def stepPowerFeedback(self):
+        #TODO
+        p,rho = 0,0
+        # get a1,b1
+        # bet a,b,c
+        # solve quadratic for new power
+        return p,rho
+
+    def stepPower(self, theta, alpha, tau_n):
+        p = 0
+        # eq 21
+        return p
+
     def solve(self, theta):
         for n in range(1,self.t.size):
             # calculate alpha
@@ -209,31 +215,34 @@ class Solver:
                 alpha = 0
                 gamma = self.dt[0]
 
+            # precursor eqn integration over timestep
             #calculate omega and zeta
-            lambda_tilde = (self.d.lambda_precursor + alpha) * self.dt[n-1]
-            omega = self.d.mgt[0]/self.d.mgt[n] * self.d.beff[n] * self.dt[n-1] * self.k1(lambda_tilde)
-            zeta_hat = np.exp(-self.d.lambda_precursor[0]*self.dt[n-1])*self.zetas[n-1] \
-                    + np.exp(alpha*self.dt[n-1]) * self.dt[n-1] * self.G[n-1] \
-                    * (self.k0(lambda_tilde) - self.k1(lambda_tilde))
+            #all of these are arraya over prec groups
 
-            pnew = self.step(theta, alpha, n)
+            lambda_tilde = (self.d.lambda_precursor[:,n] + alpha) * self.dt[n-1]
+            omega = self.d.mgt[0]/self.d.mgt[n] * self.d.beff[:,n] * self.dt[n-1] * self.k1(lambda_tilde)
+            zeta_hat = np.exp(-self.d.lambda_precursor[:,n]*self.dt[n-1])*self.zetas[:,n-1] \
+                     + np.exp(alpha*self.dt[n-1]) * self.dt[n-1] * self.G[n-1] \
+                     * (self.k0(lambda_tilde) - self.k1(lambda_tilde))
+
+            # get tau_n, Shat_n, S_(n-1)
+            tau_n = np.dot(self.d.lambda_precursor[:,n] , omega)
+            self.Shat[n] =  np.dot(self.d.lambda_precursor[:,n] , zeta_hat)
+            self.S[n-1] =  np.dot(self.d.lambda_precursor[:,n-1] , self.zetas[:,n-1])
+
+            pnew = self.stepPower(theta, alpha, n)
             if ( (pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
                  (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
                 self.p[n] = pnew
             else:
-                self.p[n]  = self.step(theta,0,n)
+                self.p[n]  = self.stepPower(theta,0,n)
 
-            self.G[n] = self.d.mgt[0]/self.d.mgt[n] * self.d.beff[n] * self.p[n] \
-                    * np.exp(-alpha*self.dt[n-1])
-
-            # perform quadratic precursor integration
-            lambda_tilde = (self.lambda_precursor + alpha)*self.dt[n]
-            # calculate delayed source for time step
-
-            # evaluate new H, rho and zetas
-            self.H[n] = self.f_fp[n] * self.p[n]
+            # evaluate new H, G, rho and zetas
+            self.H[n] = self.d.f_fp[n] * self.p[n]
+            self.G[n] = self.d.mgt[0]/self.d.mgt[n] * get1Gbeff(self.d.beff[:,n]) \
+                      * self.p[n] * np.exp(-alpha*self.dt[n-1])
             self.rho[n] = self.rho_im[n] #TODO this is temporary - no feedback
-            self.zetas[n,:] = self.zetas[n,:] #TODO precursor update
+            self.zetas[:,n] = self.zetas[:,n] #TODO precursor update
 
     def analyticPower1DG(self, beta_weighted=True):
         # analytic soln only w/out feedback

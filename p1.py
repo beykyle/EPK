@@ -5,7 +5,6 @@ import numpy as np
 from solver import *
 import matplotlib.pyplot as plt
 
-
 #
 test()
 
@@ -36,8 +35,6 @@ rho = PieceWiseReactivityRamp(times , [rho_ramp_up, rho_ramp_down], t)
 solver = Solver(data,t,rho)
 solver.solve(0.5)
 
-
-exit()
 power_numeric = solver.p
 
 # get the analytic solution
