@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 test()
 
 # set up time grid
-timesteps = 101
+timesteps = 151
 t = np.linspace(0,6.0001,num=timesteps)
 
 # set up kinetics data
@@ -32,7 +32,7 @@ rho_ramp_down = LinearReactivityRamp(0.5 * d.beff, 0, 5) #0.5$ -> 0$ in 5 s
 rho = PieceWiseReactivityRamp(times , [rho_ramp_up, rho_ramp_down], t)
 
 # run the solver
-solver = Solver(data,t,rho)
+solver = Solver(data,t,rho, debug=True)
 solver.solve(0.5)
 
 power_numeric = solver.p
@@ -47,7 +47,7 @@ plot_rx.save("./results/p1_rx.pdf")
 
 # compare analytic and numeric power with the plotter
 plotter = Plotter(t)
-plotter.addData(power_analytic, label="Analytic")
-plotter.addData(power_numeric,  label="EPKE Solver")
+plotter.addData(power_analytic, label="Analytic", marker="--")
+plotter.addData(power_numeric,  label="EPKE Solver", marker="--")
 #plt.show()
 plotter.save("./results/p1.pdf")
