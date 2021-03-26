@@ -3,6 +3,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
+import matplotlib.pyplot as mpl
+mpl.rcParams['font.size'] = 16
 
 
 """
@@ -205,7 +207,7 @@ class Solver:
                 *self.k0(lambda_H_hat) + np.exp(alpha*self.dt[n-1])*self.d.gamma_D[n]*self.dt[n-1]\
                 *self.d.f_fp[n-1]*self.p[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
 
-        # bet a,b,c
+        # get a,b,c
         beta_nm1 = get1Gbeff(self.d.beff[:,n-1])
         a = theta*self.dt[n-1]*a1 / self.d.mgt[n]
         temp = (b1 - beta_nm1)/self.d.mgt[n] - alpha
@@ -246,7 +248,7 @@ class Solver:
         rho = self.rho_im[n]
         return p, rho
 
-    def solve(self, theta, feedback=False):
+    def solve(self, theta, feedback=True):
         if feedback:
             step = self.stepPowerFeedback
         else:
@@ -323,34 +325,23 @@ class Plotter:
         self.fig = plt.figure(figsize=(12, 6))
         self.ax = plt.axes()
 
-        self.font = { 'family': 'serif',
-                      'color':  'black',
-                      'weight': 'regular',
-                      'size': 12,
-                      }
-
-        self.title_font = { 'family': 'serif',
-                            'color':  'black',
-                            'weight': 'bold',
-                            'size': 12,
-                          }
-
         self.ax.set_xlabel(xlabel)
         self.ax.set_ylabel(ylabel)
 
 
-    def addData(self, data : np.array, label=None, marker="-"):
+    def addData(self, data : np.array, label=None, marker="-", alpha=1.):
         if label != None:
-            self.ax.plot(self.t, data, marker, label=label)
+            self.ax.plot(self.t, data, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
         else:
-            self.ax.plot(self.t, data)
+            self.ax.plot(self.t, data, alpha=alpha, linewidth=2.2, markersize=12)
 
     def save(self, fname: str):
         self.ax.legend()
+        plt.tight_layout()
         self.fig.savefig(fname)
 
-    def plotReactivityRamp(self, rho : PieceWiseReactivityRamp, beff : np.array, label=None, marker="-"):
-        self.addData( rho2Dollars( beff, rho.rho) , label=label, marker=marker)
+    def plotReactivityRamp(self, rho : PieceWiseReactivityRamp, beff : np.array, label=None, marker="-", alpha=1.):
+        self.addData( rho2Dollars( beff, rho.rho) , label=label, marker=marker, alpha=alpha)
 
 def test():
     aa = np.array([0.01 , 1, 89,  100 ])
@@ -361,4 +352,3 @@ def test():
     assert(find(aa,89.000001) == 2)
     assert(find(aa,89) == 2)
     assert(find(aa,100) == 3)
-
