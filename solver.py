@@ -149,23 +149,32 @@ class Solver:
         self.H[0] = self.p[0] * self.d.f_fp[0]
         self.zetas[0,:] = 1/(self.d.lambda_precursor) * self.d.beff[0] * self.p[0]
 
-    def step(self,theta,alpha, n):
+        self.k0 = lambda x: (1 - np.exp(-x))/x
+        self.k1 = lambda x: np.abs(1 - k0(x))/x
+
+
+    def step(self, theta, alpha, n):
             # perform quadratic precursor integration
             # calculate delayed source for time step
             # calculate H
             # handle feedback
+            lambda_tilde
+        return 1
     def solve(self, theta):
-        #TODO
-        for n in range(1,self.t.size+1):
+        for n in range(1,self.t.size):
             # calculate alpha
-            alpha = 0
-            gamma = 0
-            pnew = step(theta, alpha,n)
-            if ( (pnew - np.exp(alpha * dt[n]) * p[n-1] ) <=
-                 (pnew - p[n-1] - (p[n-1] - p[n-2])/gamma ) ):
-                p[n] = pnew
+            if n > 1:
+                alpha = 1/self.dt[n-2]*np.log(self.p[n-1]/self.p[n-2])
+                gamma = self.dt[n-2]/self.dt[n-1]
             else:
-                p[n]  =step(theta,0,n)
+                alpha = 0
+                gamma = self.dt[0]
+            pnew = self.step(theta, alpha, n)
+            if ( (pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
+                 (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
+                self.p[n] = pnew
+            else:
+                self.p[n]  = self.step(theta,0,n)
 
             # perform quadratic precursor integration
             # calculate delayed source for time step
