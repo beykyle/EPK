@@ -349,8 +349,8 @@ class Plotter:
         self.ax.legend()
         self.fig.savefig(fname)
 
-    def plotReactivityRamp(self, rho : PieceWiseReactivityRamp, beff : np.array):
-        self.addData( rho2Dollars( beff, rho.rho) )
+    def plotReactivityRamp(self, rho : PieceWiseReactivityRamp, beff : np.array, label=None, marker="-"):
+        self.addData( rho2Dollars( beff, rho.rho) , label=label, marker=marker)
 
 def test():
     aa = np.array([0.01 , 1, 89,  100 ])
