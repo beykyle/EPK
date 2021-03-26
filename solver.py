@@ -142,29 +142,27 @@ class Solver:
         self.rho_im = reactivity.rho
         # initialize arrays for output quantities
         self.H = np.zeros(time.shape)
+        self.G = np.zeros(time.shape)
         self.p = np.zeros(time.shape)
         self.zetas = np.zeros((self.timesteps,data.precursor_groups))
         # set initial conditions
         self.p[0] = 1
         self.H[0] = self.p[0] * self.d.f_fp[0]
+        self.G[0] = self.d.beff[0] * self.p[0]
         self.zetas[0,:] = 1/(self.d.lambda_precursor) * self.d.beff[0] * self.p[0]
 
         self.k0 = lambda x: (1 - np.exp(-x))/x
         self.k1 = lambda x: np.abs(1 - self.k0(x))/x
 
-    def step(self, theta, alpha, n):
+    #def step(self, theta, alpha, n):
             # perform quadratic precursor integration
             # calculate delayed source for time step
             # calculate H
             # handle feedback
-        w = 1/np.exp(self.lambda_precursor)
-        lambda_tilde = (self.d.lambda_precursor + alpha) * self.dt[n-1]
-        omega = self.d.mgt/self.d.mgt * self.d.beff[n] * self.dt[n-1] * self.k1(lambda_tilde)
-        zeta_hat = w*self.zetas[n-1] + w*self.d.mgt*self.p[n-1]*self.beff[n-1]/self.mgt \
-                *(self.k0(self.lambda_precursor) - 
-        print(omega)
+        #zeta_hat = w*self.zetas[n-1] + w*self.d.mgt*self.p[n-1]*self.beff[n-1]/self.mgt \
+        #        *(self.k0(self.lambda_precursor) - 
+        #print(omega)
             #lambda_tilde = 
-        return 1
     def solve(self, theta):
         for n in range(1,self.t.size):
             # calculate alpha
@@ -174,12 +172,23 @@ class Solver:
             else:
                 alpha = 0
                 gamma = self.dt[0]
+
+            #calculate omega and zeta
+            lambda_tilde = (self.d.lambda_precursor + alpha) * self.dt[n-1]
+            omega = self.d.mgt[0]/self.d.mgt[n] * self.d.beff[n] * self.dt[n-1] * self.k1(lambda_tilde)
+            zeta_hat = np.exp(-self.d.lambda_precursor[0]*self.dt[n-1])*self.zetas[n-1] \
+                    + np.exp(alpha*self.dt[n-1]) * self.dt[n-1] * self.G[n-1] \
+                    * (self.k0(lambda_tilde) - self.k1(lambda_tilde))
+
             pnew = self.step(theta, alpha, n)
             if ( (pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
                  (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
                 self.p[n] = pnew
             else:
                 self.p[n]  = self.step(theta,0,n)
+
+            self.G[n] = self.d.mgt[0]/self.d.mgt[n] * self.d.beff[n] * self.p[n] \
+                    * np.exp(-alpha*self.dt[n-1])
 
             # perform quadratic precursor integration
             # calculate delayed source for time step
