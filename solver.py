@@ -197,7 +197,7 @@ class Solver:
         self.p[0] = 1
         self.H[0] = self.p[0] * self.d.f_fp[0]
         self.G[0] = get1Gbeff(self.d.beff[:,0]) * self.p[0]
-        self.zetas[0,:] = 1.0/ self.d.lambda_precursor[:,0] * self.d.beff[:,0] * self.p[0]
+        self.zetas[:,0] = 1.0/ self.d.lambda_precursor[:,0] * self.d.beff[:,0] * self.p[0]
 
     def stepPowerFeedback(self, theta, alpha, tau_n, n):
         # get a1,b1
