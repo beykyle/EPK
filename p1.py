@@ -47,7 +47,7 @@ plot_rx.save("./results/p1_rx.pdf")
 
 # compare analytic and numeric power with the plotter
 plotter = Plotter(t)
-plotter.addData(power_analytic, label="Analytic", marker="--")
+plotter.addData(power_analytic, label="Analytic", marker="x")
 plotter.addData(power_numeric,  label="EPKE Solver", marker="--")
 #plt.show()
 plotter.save("./results/p1.pdf")
