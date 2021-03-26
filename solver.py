@@ -177,23 +177,27 @@ class Solver:
         assert(self.t.shape == (self.timesteps,))
         assert(self.t.shape == reactivity.t.shape)
         self.reactivity = reactivity
-        self.rho_im = reactivity.rho
+
+        self.k0 = lambda x: k0(x)
+        self.k1 = lambda x: k1(x)
+
+        self.reset()
+
+    def reset(self):
         # initialize arrays for output quantities
-        self.H     = np.zeros(time.shape)
-        self.G     = np.zeros(time.shape)
-        self.S     = np.zeros(time.shape)
-        self.Shat  = np.zeros(time.shape)
-        self.p     = np.zeros(time.shape)
-        self.zetas = np.zeros((data.precursor_groups,self.timesteps))
-        self.rho   = self.rho_im
+        self.H       = np.zeros(self.t.shape)
+        self.G       = np.zeros(self.t.shape)
+        self.S       = np.zeros(self.t.shape)
+        self.Shat    = np.zeros(self.t.shape)
+        self.p       = np.zeros(self.t.shape)
+        self.zetas   = np.zeros((self.d.precursor_groups,self.timesteps))
+        self.rho_im  = self.reactivity.rho
+        self.rho     = self.rho_im
         # set initial conditions
         self.p[0] = 1
         self.H[0] = self.p[0] * self.d.f_fp[0]
         self.G[0] = get1Gbeff(self.d.beff[:,0]) * self.p[0]
         self.zetas[0,:] = 1.0/ self.d.lambda_precursor[:,0] * self.d.beff[:,0] * self.p[0]
-
-        self.k0 = lambda x: k0(x)
-        self.k1 = lambda x: k1(x)
 
     def stepPowerFeedback(self, theta, alpha, tau_n, n):
         # get a1,b1
@@ -329,11 +333,17 @@ class Plotter:
         self.ax.set_ylabel(ylabel)
 
 
-    def addData(self, data : np.array, label=None, marker="-", alpha=1.):
+    def addData(self, data : np.array, label=None, marker="-", alpha=1., log=False):
         if label != None:
-            self.ax.plot(self.t, data, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
+            if log:
+                self.ax.loglog(self.t, data, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
+            else:
+                self.ax.plot(self.t, data, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
         else:
-            self.ax.plot(self.t, data, alpha=alpha, linewidth=2.2, markersize=12)
+            if log:
+                self.ax.loglog(self.t, data, marker, alpha=alpha, linewidth=2.2, markersize=12)
+            else:
+                self.ax.plot(self.t, data, marker, alpha=alpha, linewidth=2.2, markersize=12)
 
     def save(self, fname: str):
         self.ax.legend()
