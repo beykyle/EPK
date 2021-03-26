@@ -8,14 +8,16 @@ from solver import *
 test()
 
 # set up time grid
-timesteps = 1001
+timesteps = 101
 t = np.linspace(0,6.0001,num=timesteps)
 
 # set up kinetics data
 d = ConstantKineticsData()
-d.beff = 0.76
 d.mgt = 2.6E-15
+
+# precursor data
 d.lambda_precursor  = np.array([0.49405])
+d.beff              = np.array([0.76])
 
 # thermal feedback dynamics data
 
@@ -38,7 +40,7 @@ power_analytic = solver.analyticPower1DG()
 
 # plot reactivity ramp
 plot_rx = Plotter(t, ylabel=r"$\rho$ [\$]")
-plot_rx.plotReactivityRamp(rho)
+plot_rx.plotReactivityRamp(rho, data.beff)
 plot_rx.save("./results/p1_rx.pdf")
 
 # compare analytic and numeric power with the plotter
