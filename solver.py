@@ -25,10 +25,10 @@ def get1Gbeff(beff : np.array):
     return np.sum(beff)
 
 def betaWeightedLambda(beff : np.array , lambda_precursor : np.array):
-    return np.dot(self.beff , self.lambda_precursor) / get1Gbeff(beff)
+    return np.dot(beff , lambda_precursor) / get1Gbeff(beff)
 
 def invBetaWeightedLambda(beff : np.array, lambda_precursor : np.array):
-    return get1Gbeff(beff) / np.dot(self.beff , 1.0/self.lambda_precursor)
+    return get1Gbeff(beff) / np.dot(beff , 1.0/lambda_precursor)
 
 def rho2Dollars(beff : np.array, rho : np.array):
     assert(beff.shape[1] == rho.size)
@@ -69,17 +69,17 @@ class Data:
         if self.precursor_groups == 1:
             return self
 
-        new_lambda = np.zeros((self.timesteps,))
-        new_beff   = np.zeros(self.timesteps,)
+        new_lambda = np.zeros((1,self.timesteps))
+        new_beff   = np.zeros((1,self.timesteps))
         for i in range(self.timesteps):
-            new_beff[i] = get1Gbeff(self.beff[:,i])
+            new_beff[0,i] = get1Gbeff(self.beff[:,i])
             if beta_weighted:
-                new_lambda[i] = betaWeightedLambda(self.beff[:,i],self.lambda_precursor[:,i])
+                new_lambda[0,i] = betaWeightedLambda(self.beff[:,i],self.lambda_precursor[:,i])
             else:
-                new_lambda[i] = invBetaWeightedLambdab(self.beff[:,i],self.lambda_precursor[:,i])
+                new_lambda[0,i] = invBetaWeightedLambda(self.beff[:,i],self.lambda_precursor[:,i])
 
-        return Data(self.lambda_H, self.beff, self.mgt,
-                    self.gamma_D , self.f_fp, new_lambda, self.timesteps)
+        return Data(self.lambda_H, self.mgt, self.gamma_D , self.f_fp,
+                new_lambda, new_beff, self.timesteps)
 
     def print_all(self):
         print("f_fp")
@@ -186,10 +186,6 @@ class Solver:
         self.time_dep_precurs = time_dep_precurs
         self.d = data
         self.t = time
-        self.dt = time[1:] - time[:-1] # time step
-        self.timesteps = time.size
-        assert(self.t.shape == (self.timesteps,))
-        assert(self.t.shape == reactivity.t.shape)
         self.reactivity = reactivity
 
         self.k0 = lambda x: k0(x)
@@ -200,8 +196,14 @@ class Solver:
             print("Data")
             self.d.print_all()
 
-    def reset(self):
+    def resetNewData(self, d, t):
         # initialize arrays for output quantities
+        self.d       = d
+        self.t       = t
+        self.dt = self.t[1:] - self.t[:-1] # time step
+        self.timesteps = self.t.size
+        assert(self.t.shape == (self.timesteps,))
+        assert(self.t.shape == self.reactivity.t.shape)
         self.H       = np.zeros(self.t.shape)
         self.G       = np.zeros(self.t.shape)
         self.S       = np.zeros(self.t.shape)
@@ -215,6 +217,9 @@ class Solver:
         self.H[0] = self.p[0] * self.d.f_fp[0]
         self.G[0] = get1Gbeff(self.d.beff[:,0]) * self.p[0]
         self.zetas[:,0] = 1.0/ self.d.lambda_precursor[:,0] * self.d.beff[:,0] * self.p[0]
+
+    def reset(self):
+        self.resetNewData(self.d,self.t)
 
     def stepPowerFeedback(self, theta, alpha, tau_n, n):
         # get a1,b1
@@ -305,8 +310,8 @@ class Solver:
 
             # test if exp transform gives better convergence than linear
             if (n > 1):
-                if ( (pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
-                     (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
+                if ( np.fabs(pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
+                     np.fabs(pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
                     self.p[n] = pnew
                     self.rho[n] = rhonew
                 else:
