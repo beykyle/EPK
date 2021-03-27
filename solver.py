@@ -168,8 +168,10 @@ def k1(x : float):
     return 0.5 - x/6 + x**2/24  - x**3/120 + x**4/720- x**5/5040 + x**6/40320
 
 class Solver:
-    def __init__(self, data : Data, time : np.array, reactivity : Reactivity, debug=False):
+    def __init__(self, data : Data, time : np.array, reactivity : Reactivity,
+                 debug=False, time_dep_precurs = False):
         self.debug = debug
+        self.time_dep_precurs = time_dep_precurs
         self.d = data
         self.t = time
         self.dt = time[1:] - time[:-1] # time step
@@ -304,6 +306,9 @@ class Solver:
             self.G[n] = self.d.mgt[0]/self.d.mgt[n] * get1Gbeff(self.d.beff[:,n]) \
                       * self.p[n] * np.exp(-alpha*self.dt[n-1])
             self.zetas[:,n] = self.p[n] * omega + zeta_hat
+            if self.time_dep_precurs:
+                self.d.lambda_precursor[:, n] = np.dot(self.zetas[:, n], self.d.lambda_precursor[:, 0])\
+                        /self.zetas[:, n].sum()
 
             # print debug time step info
             if(self.debug):
