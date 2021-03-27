@@ -42,11 +42,13 @@ times = [0,1,6] # total asym ramp time: 6s
 rho_ramp_up = LinearReactivityRamp(0,0.5 * 0.0076, 1) # 0$ -> 0.5$ in 1s
 rho_ramp_down = LinearReactivityRamp(0.5 * 0.0076, 0, 5) #0.5$ -> 0$ in 5 s
 rho = PieceWiseReactivityRamp(times , [rho_ramp_up, rho_ramp_down], t)
+print(rho.rho.max())
+exit()
 
 # set up plotter and solver, get analytic soln
 solver = Solver(data,t,rho)
 #power_analytic = solver.analyticPower1DG()
-solver.solve(1, True)
+solver.solve(1, False)
 
 plt.plot(solver.t, solver.p, "k.")
 plt.show()
