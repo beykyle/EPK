@@ -307,6 +307,7 @@ class Solver:
                       * self.p[n] * np.exp(-alpha*self.dt[n-1])
             self.zetas[:,n] = self.p[n] * omega + zeta_hat
             if self.time_dep_precurs:
+                temp= self.d.lambda_precursor[:,n].copy()
                 self.d.lambda_precursor[:, n] = np.dot(self.zetas[:, n], self.d.lambda_precursor[:, 0])\
                         /self.zetas[:, n].sum()
 
