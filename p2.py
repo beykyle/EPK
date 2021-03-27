@@ -12,12 +12,12 @@ Problem C.2 on 551 HW 4
 test()
 
 # set up time grid
-timesteps = 501
+timesteps = 1500
 t = np.linspace(0,6.0001,num=timesteps)
 
 # set up kinetics data
 d = ConstantKineticsData()
-d.mgt = 2.6E-15
+d.mgt = 2.6E-5
 
 # precursor data
 lambda_precursor  = np.array([0.0128, 0.0318, 0.119, 0.3181, 1.4027, 3.9286])
@@ -43,16 +43,17 @@ for key, value in lambda_precursor_sets.items():
     else:
         d.beff = beff
     data = Data.buildFromConstant(d, t)
-    solver = Solver(data, t, rho)
+    solver = Solver(data, t, rho, debug = False)
     solver.solve(0.5, False)
     plt.plot(solver.t, solver.p, label = key)
 
-d.lambda_precursor = lambda_precursor_sets["6-group"]
-d.beff = beff
-data = Data.buildFromConstant(d, t)
-solver = Solver(data, t, rho, time_dep_precurs = True)
-solver.solve(0.5, False)
-plt.plot(solver.t, solver.p, label = "time-dep")
+#d.lambda_precursor = lambda_precursor_sets["6-group"]
+#d.beff = beff
+#data = Data.buildFromConstant(d, t)
+#solver = Solver(data, t, rho, time_dep_precurs = True)
+#solver.solve(0.5, False)
+#exit()
+#plt.plot(solver.t, solver.p, label = "time-dep")
 plt.ylim([0.5, 4])
 plt.legend()
 plt.show()
