@@ -12,12 +12,12 @@ Problem C.1 on 551 HW 4
 test()
 
 # set up time grid
-timesteps = 501
+timesteps = 1001
 t = np.linspace(0,6.0001,num=timesteps)
 
 # set up kinetics data
 d = ConstantKineticsData()
-d.mgt = 2.6E-15
+d.mgt = 2.6E-5
 
 # precursor data
 d.lambda_precursor  = np.array([0.49405])
@@ -54,9 +54,9 @@ power_plotter.addData(solver.p, label=r"EPK, $\theta=1$", marker="y.", alpha=0.3
 precursor_plotter.addData(solver.zetas[0,:], label=r"EPK, $\theta=1$", marker="y.", alpha=0.3)
 solver.reset()
 #solver.debug = True
-#solver.solve(0)
-#power_plotter.addData(solver.p, label=r"EPK, $\theta=0$", marker=".", alpha=0.5)
-#precursor_plotter.addData(solver.zetas[0,:], label=r"EPK, $\theta=0$", marker=".", alpha=0.5)
+solver.solve(0)
+power_plotter.addData(solver.p, label=r"EPK, $\theta=0$", marker=".", alpha=0.5)
+precursor_plotter.addData(solver.zetas[0,:], label=r"EPK, $\theta=0$", marker=".", alpha=0.5)
 
 # plot analytic soln on top
 power_analytic = solver.analyticPower1DG()
@@ -72,11 +72,15 @@ precursor_plotter.save("./results/theta_study_zeta.pdf")
 
 #
 # time step study
-timesteps = np.logspace(2,6, num=15)
+step_size = np.linspace(1E-3, 50E-3, num=10)
+timesteps = np.round( 6.0/step_size).astype(dtype=int)
+
 l2_diff_CN = []
 l2_diff_IMP = []
+l2_diff_EXP = []
 RDM_diff_CN = []
 RDM_diff_IMP = []
+RDM_diff_EXP = []
 
 def L2(a,b):
     return np.linalg.norm(a-b) / np.linalg.norm(a)
@@ -91,26 +95,39 @@ for num_t in timesteps:
     data = Data.buildFromConstant(d, t)
     rho = PieceWiseReactivityRamp(times , [rho_ramp_up, rho_ramp_down], t)
     # set up and run solver
+    # get analytic
     solver = Solver(data,t,rho)
     power_analytic = solver.analyticPower1DG()
+    # CN
     solver.solve(0.5)
     l2_diff_CN.append(L2(power_analytic,solver.p))
     RDM_diff_CN.append(relDiffMax(power_analytic,solver.p))
     solver.reset()
+    # implicit
     solver.solve(1.0)
     l2_diff_IMP.append(L2(power_analytic,solver.p))
     RDM_diff_IMP.append(relDiffMax(power_analytic,solver.p))
-    solver.solve(1.0)
     solver.reset()
+    # explicit
+    solver.solve(0.0)
+    l2_diff_EXP.append(L2(power_analytic,solver.p))
+    RDM_diff_EXP.append(relDiffMax(power_analytic,solver.p))
+    solver.reset()
+    print("Time Step Size [ms]        : {:1.5f}".format(6.0/num_t))
+    print("Relative Max Diff (CN) [%] : {:1.5f}".format(RDM_diff_CN[-1]))
+    print("Relative Max Diff (IM) [%] : {:1.5f}".format(RDM_diff_IMP[-1]))
+    print("Relative Max Diff (EX) [%] : {:1.5f}".format(RDM_diff_EXP[-1]))
 
 p = Plotter(6.0E3/timesteps,  xlabel=r"time step [ms]", ylabel=r"$(L_2(p_{analytic} -  p_{epk}))/L_2(p_{analaytic})$")
 p.addData(np.array(l2_diff_CN), marker="kx", label="Crank-Nicholson")
 p.addData(np.array(l2_diff_IMP), marker="yx", label="Implicit", alpha=0.4)
+p.addData(np.array(l2_diff_EXP), marker="gx", label="Explicit", alpha=0.4)
 p.addData(np.ones((len(RDM_diff_CN),)) * 0.01, label="0.01")
 p.save("./results/time_step.pdf")
 
 p = Plotter(6.0E3/timesteps,  xlabel=r"time step [ms]", ylabel=r"$(p^{max}_{analytic} -  p^{max}_{epk})/p^{max}_{analaytic}$")
 p.addData(np.array(RDM_diff_CN), marker="kx", label="Crank-Nicholson")
 p.addData(np.array(RDM_diff_IMP), marker="yx",label="Implicit", alpha=0.4)
+p.addData(np.array(RDM_diff_EXP), marker="gx",label="Explicit", alpha=0.4)
 p.addData(np.ones((len(RDM_diff_CN),)) * 0.01, label="0.01")
 p.save("./results/time_step_RDM.pdf")
