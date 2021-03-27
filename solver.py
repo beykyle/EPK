@@ -81,6 +81,18 @@ class Data:
         return Data(self.lambda_H, self.beff, self.mgt,
                     self.gamma_D , self.f_fp, new_lambda, self.timesteps)
 
+    def print_all(self):
+        print("f_fp")
+        print(self.f_fp)
+        print("Lambda_H")
+        print(self.lambda_H)
+        print("Gamma_D")
+        print(self.gamma_D)
+        print("Lambda_precursor")
+        print(self.lambda_precursor)
+        print("beff")
+        print(self.beff)
+
     @classmethod
     def buildFromConstant(self, d : ConstantKineticsData, time_grid : np.array):
         grid_shape = time_grid.shape
@@ -184,6 +196,9 @@ class Solver:
         self.k1 = lambda x: k1(x)
 
         self.reset()
+        if (self.debug):
+            print("Data")
+            self.d.print_all()
 
     def reset(self):
         # initialize arrays for output quantities
