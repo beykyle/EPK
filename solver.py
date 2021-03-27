@@ -116,7 +116,7 @@ class Reactivity:
     pass
 
 class ReactivityGrid(Reactivity):
-    def __init__(t : np.array, rho : np.array):
+    def __init__(self, t : np.array, rho : np.array):
         assert(t.shape == rho.shape)
         self.t = t
         self.rho = rho
