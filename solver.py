@@ -290,8 +290,8 @@ class Solver:
 
             # test if exp transform gives better convergence than linear
             if (n > 1):
-                if ( (pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
-                     (pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
+                if ( np.abs(pnew - np.exp(alpha * self.dt[n-1]) * self.p[n-1] ) <=
+                     np.abs(pnew - self.p[n-1] - (self.p[n-1] - self.p[n-2])/gamma ) ):
                     self.p[n] = pnew
                     self.rho[n] = rhonew
                 else:
@@ -299,6 +299,7 @@ class Solver:
             else:
                 #TODO what is reactivity in this case?
                 self.p[n] = pnew
+                self.rho[n] = rhonew
 
 
             # evaluate new H, G, rho and zetas
@@ -308,8 +309,15 @@ class Solver:
             self.zetas[:,n] = self.p[n] * omega + zeta_hat
             if self.time_dep_precurs:
                 temp= self.d.lambda_precursor[:,n].copy()
-                self.d.lambda_precursor[:, n] = np.dot(self.zetas[:, n], self.d.lambda_precursor[:, 0])\
+                self.d.lambda_precursor[:, n ] = 0.0001
+                self.d.beff[:, n] = 0.0001
+                self.d.beff[0, n] = 0.0076
+                self.d.lambda_precursor[0, n] = np.dot(self.zetas[:, n], self.d.lambda_precursor[:, 0])\
                         /self.zetas[:, n].sum()
+                print(np.dot(self.zetas[:, n], self.d.lambda_precursor[:, 0])\
+                        /self.zetas[:, n].sum())
+                print(self.d.lambda_precursor[:, n])
+
 
             # print debug time step info
             if(self.debug):
