@@ -20,37 +20,39 @@ d = ConstantKineticsData()
 d.mgt = 2.6E-15
 
 # precursor data
-oneg = False
-if oneg:
-    d.lambda_precursor  = np.array([0.49405, 0.0001, 0.00001,0.00001])
-    d.beff              = np.array([0.76, 0.0001, 0.00001, 0.00001])
-    d.beff = d.beff/100
-else:
-    d.lambda_precursor  = np.array([0.0128, 0.0318, 0.119, 0.3181, 1.4027, 3.9286])
-    d.beff              = np.array([0.02584, 0.152, 0.13908, 0.30704, 0.1102, 0.02584])
-    d.beff = d.beff/100
-
-# thermal feedback dynamics data
-d.lambda_H = 0#1.
-d.gamma_D = 0#-1.2
-
-# build data object gridded over time steps
-data = Data.buildFromConstant(d, t)
+lambda_precursor  = np.array([0.0128, 0.0318, 0.119, 0.3181, 1.4027, 3.9286])
+beff              = np.array([0.02584, 0.152, 0.13908, 0.30704, 0.1102, 0.02584])/100
 
 # build a reactivity ramp
 times = [0,1,6] # total asym ramp time: 6s
-rho_ramp_up = LinearReactivityRamp(0,0.5 * 0.0076, 1) # 0$ -> 0.5$ in 1s
-rho_ramp_down = LinearReactivityRamp(0.5 * 0.0076, 0, 5) #0.5$ -> 0$ in 5 s
+rho_ramp_up = LinearReactivityRamp(0,0.5 * beff.sum(), 1) # 0$ -> 0.5$ in 1s
+rho_ramp_down = LinearReactivityRamp(0.5 * beff.sum(), 0, 5) #0.5$ -> 0$ in 5 s
 rho = PieceWiseReactivityRamp(times , [rho_ramp_up, rho_ramp_down], t)
-print(rho.rho.max())
-exit()
 
-# set up plotter and solver, get analytic soln
-solver = Solver(data,t,rho)
-#power_analytic = solver.analyticPower1DG()
-solver.solve(1, False)
+# beta weighted precursor data
+lambda_precursor_sets = {}
 
-plt.plot(solver.t, solver.p, "k.")
+lambda_precursor_sets["beta"] = np.average(lambda_precursor, weights = beff)
+lambda_precursor_sets["inv"] = beff.sum() / np.sum(beff / lambda_precursor)
+lambda_precursor_sets["6-group"] = lambda_precursor.copy()
+
+for key, value in lambda_precursor_sets.items():
+    d.lambda_precursor = value
+    if key in ["inv", "beta"]:
+        d.beff = beff.sum()
+    else:
+        d.beff = beff
+    data = Data.buildFromConstant(d, t)
+    solver = Solver(data, t, rho)
+    solver.solve(0.5, False)
+    plt.plot(solver.t, solver.p, label = key)
+
+d.lambda_precursor = lambda_precursor_sets["6-group"]
+d.beff = beff
+data = Data.buildFromConstant(d, t)
+solver = Solver(data, t, rho, time_dep_precurs = True)
+solver.solve(0.5, False)
+plt.plot(solver.t, solver.p, label = "time-dep")
+plt.ylim([0.5, 4])
+plt.legend()
 plt.show()
-
-
