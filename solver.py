@@ -38,7 +38,7 @@ def rho2Dollars(beff : np.array, rho : np.array):
     return np.multiply(rho,  1.0/beff1G)
 
 class ConstantKineticsData:
-    def __init__(self, mgt=2.6E-5, f_fp=1.0, gamma_D=0, lambda_H=0.0,beff=np.array([0.76]), lambda_precursor=np.array([0.49405])):
+    def __init__(self, mgt=2.6E-5, f_fp=1.0, gamma_D=0, lambda_H=0.0,beff=np.array([0.0076]), lambda_precursor=np.array([0.49405])):
         self.mgt              = mgt
         self.f_fp             = f_fp
         self.gamma_D          = gamma_D
@@ -297,7 +297,6 @@ class Solver:
                 else:
                     self.p[n], self.rho[n] = step(theta, 0, tau_n, n)
             else:
-                #TODO what is reactivity in this case?
                 self.p[n] = pnew
 
 
@@ -351,6 +350,7 @@ class Plotter:
                 self.ax.plot(self.t, data, marker, alpha=alpha, linewidth=2.2, markersize=12)
 
     def save(self, fname: str):
+        print("Saving figure: " + fname)
         self.ax.legend()
         plt.tight_layout()
         self.fig.savefig(fname)
