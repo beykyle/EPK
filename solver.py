@@ -284,6 +284,8 @@ class Solver:
             print("n\tt(s) \tdt   \ta_n  \tl_t  \tz_n  \trho_n\tp_n  ")
 
         for n in range(1,self.t.size):
+            if n % 100 == 0:
+                print(n, self.t.size)
             # calculate alpha
             if n > 1:
                 alpha = 1/self.dt[n-2]*np.log(self.p[n-1]/self.p[n-2])
