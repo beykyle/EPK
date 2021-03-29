@@ -33,29 +33,47 @@ rho = PieceWiseReactivityRamp(times , [rho_ramp_up, rho_ramp_down], t)
 lambda_precursor_sets = {}
 
 lambda_precursor_sets["beta"] = np.average(lambda_precursor, weights = beff)
-lambda_precursor_sets["inv"] = beff.sum() / np.sum(beff / lambda_precursor)
+lambda_precursor_sets["inverse"] = beff.sum() / np.sum(beff / lambda_precursor)
 lambda_precursor_sets["6-group"] = lambda_precursor.copy()
+lambda_precursor_sets["tmax"] = np.asarray(0.2439)
+
+pa = Plotter(t) #power plot of all methos
+pb = Plotter(t) #power plot of beta vs 6g
+zb = Plotter(t, ylabel=r"$\zeta$") #zeta plot of 1g vs 6g
 
 for key, value in lambda_precursor_sets.items():
     d.lambda_precursor = value
-    if key in ["inv", "beta"]:
+    print(value)
+    if key in ["inverse", "beta", "tmax"]:
+        l = key
         d.beff = beff.sum()
     else:
+        l = ""
         d.beff = beff
     data = Data.buildFromConstant(d, t)
     solver = Solver(data, t, rho)
     solver.solve(0.5, False)
-    plt.plot(solver.t, solver.p, label = key)
+    pa.addData(solver.p, label = str(d.beff.size) + "G " +  l)
+    if key in ["beta", "6-group"]:
+        pb.addData(solver.p, label = str(d.beff.size) + "G " +  l)
+        zb.addData(solver.zetas.sum(0), label = str(d.beff.size) + "G " +  l)
+
 
 d.lambda_precursor = lambda_precursor_sets["6-group"]
 d.beff = beff
 data = Data.buildFromConstant(d, t)
 solver = Solver(data, t, rho, time_dep_precurs = True)
 solver.solve(0.5, False)
-plt.plot(solver.t, solver.p, label = "time-dep")
-plt.ylim([0.5, 4])
-plt.legend()
+pc = Plotter(t[1:], ylabel = r"$\lambda$")
+pc.addData(solver.d.lambda_precursor[0,1:])
+
+pa.addData(solver.p, label = "1G time-dependent")
+pa.save("./results/precursor_grouping_comparison.pdf")
+pb.save("./results/1v6precurs_comparison.pdf")
+zb.save("./results/1v6precurs_zeta_comparison.pdf")
+pc.save("./results/tdep_lambda.pdf")
 #plt.show()
+exit()
 
 
 d = Data.buildFromConstant(d,t)
@@ -64,9 +82,6 @@ invbeta_weighted_data  = d.collapseGroups(beta_weighted=False)
 
 p = Plotter(t)
 s = Solver(d,t,rho, debug=True)
-import pdb
-pdb.run('s.solve(0.5)')
-#s.solve(0.5)
 print(s.p)
 s.debug = False
 p.addData(s.p, label="6G")
