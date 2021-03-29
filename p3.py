@@ -22,8 +22,8 @@ def interp(qty, t):
 #set up time mesh
 start_time, end_time = parcs_data["Time"].iloc[0], parcs_data["Time"].iloc[-1]
 dt = 0.1e-3
-#t = np.arange(start_time, end_time + dt, dt)
-t = np.linspace(start_time, end_time, 10000)
+t = np.arange(start_time, end_time + dt, dt)
+#t = np.linspace(start_time, end_time, 10000)
 
 #set up precursors
 lambda_precursor = np.array([0.0128, 0.0318, 0.119, 0.3181, 1.4027, 3.9286])
