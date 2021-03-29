@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.interpolate as si
 '''
-Problem D.2 on 551 HW 4
+Problem D.1 on 551 HW 4
 '''
 
 test()
