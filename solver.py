@@ -92,6 +92,8 @@ class Data:
         print(self.lambda_precursor)
         print("beff")
         print(self.beff)
+        print("mgt")
+        print(self.mgt)
 
     @classmethod
     def buildFromConstant(self, d : ConstantKineticsData, time_grid : np.array):
@@ -116,7 +118,7 @@ class Reactivity:
     pass
 
 class ReactivityGrid(Reactivity):
-    def __init__(t : np.array, rho : np.array):
+    def __init__(self, t : np.array, rho : np.array):
         assert(t.shape == rho.shape)
         self.t = t
         self.rho = rho
@@ -192,9 +194,6 @@ class Solver:
         self.k1 = lambda x: k1(x)
 
         self.reset()
-        if (self.debug):
-            print("Data")
-            self.d.print_all()
 
     def resetNewData(self, d, t):
         # initialize arrays for output quantities
@@ -217,6 +216,13 @@ class Solver:
         self.H[0] = self.p[0] * self.d.f_fp[0]
         self.G[0] = get1Gbeff(self.d.beff[:,0]) * self.p[0]
         self.zetas[:,0] = 1.0/ self.d.lambda_precursor[:,0] * self.d.beff[:,0] * self.p[0]
+        if (self.debug):
+            print("Data")
+            self.d.print_all()
+            print("Reactivity")
+            print(self.rho)
+            print("Imposed reactivity")
+            print(self.rho_im)
 
     def reset(self):
         self.resetNewData(self.d,self.t)
@@ -281,7 +287,7 @@ class Solver:
             step = self.stepPower
 
         if (self.debug):
-            print("n\tt(s) \tdt   \ta_n  \tl_t  \tz_n  \trho_n\tp_n  ")
+            print("n\tt [s]\tdt   \ta_n  \tl_t  \tz_n  \trho_n\tp_n  ")
 
         for n in range(1,self.t.size):
             # calculate alpha
@@ -332,7 +338,7 @@ class Solver:
 
             # print debug time step info
             if(self.debug):
-                print("{}\t{:1.5f}\t{:1.5f}\t{:1.5f}\t{:1.5f}\t{:1.5f}\t{:1.5f}\t{:1.5f}"
+                print("{}\t{:6.4f}\t{:6.4f}\t{:6.4f}\t{:6.4f}\t{:6.4f}\t{:6.4f}\t{:6.4f}"
                         .format(n, self.t[n], self.dt[n-1], alpha, lambda_tilde[0],
                                 self.zetas[0,n], self.rho[n], self.p[n])
                 )
