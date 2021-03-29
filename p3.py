@@ -41,15 +41,16 @@ data.f_fp = interp("Normalization-Factor", t)
 
 #create Rho instance
 rho = ReactivityGrid(t, interp("Reactivity", t))
-rho.rho = rho.rho #np.sum(beff) # convert form $ to reactivity
+rho.rho = rho.rho * np.sum(beff) # convert form $ to reactivity
 
 #create the solver instance
 power_plt = Plotter(t)
-power_plt.addData(interp("Relative-Power",t) , label="PARCS")
 solver = Solver(data, t, rho, debug=True)
-solver.solve(0.5, feedback=True)
-power_plt.addData(solver.p, label="EPK")
-power_plt.save("./results/parcs_d1.pdf")
-
-#plt.legend()
-#plt.show()
+#import pdb
+#pdb.run('solver.solve(0.5, feedback=False)')
+solver.solve(0.5, feedback=False)
+power_plt.addData(solver.p, label="EPK", marker='x')
+power_plt.addData(interp("Relative-Power",t) , label="PARCS", marker='-')
+plt.legend()
+plt.show()
+#power_plt.save("./results/parcs_d1.pdf")
