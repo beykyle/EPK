@@ -205,7 +205,7 @@ class Solver:
         assert(self.t.shape == (self.timesteps,))
         assert(self.t.shape == self.reactivity.t.shape)
         self.H       = np.zeros(self.t.shape)
-        self.G       = np.zeros(self.t.shape)
+        self.G       = np.zeros((self.d.precursor_groups, self.timesteps))
         self.S       = np.zeros(self.t.shape)
         self.Shat    = np.zeros(self.t.shape)
         self.p       = np.zeros(self.t.shape)
@@ -215,7 +215,6 @@ class Solver:
         # set initial conditions
         self.p[0] = 1
         self.H[0] = self.p[0] * self.d.f_fp[0]
-        self.G[0] = get1Gbeff(self.d.beff[:,0]) * self.p[0]
         self.zetas[:,0] = self.d.beff[:,0] * self.p[0] / self.d.lambda_precursor[:,0]
         if (self.debug):
             print("Data")
@@ -304,9 +303,11 @@ class Solver:
             lambda_tilde = (self.d.lambda_precursor[:,n] + alpha) * self.dt[n-1]
             omega = self.d.mgt[0]/self.d.mgt[n] * self.d.beff[:,n] * self.dt[n-1] \
                   * k1(lambda_tilde)
+            self.G[:,n-1] = self.d.mgt[0]/self.d.mgt[n-1]*self.d.beff[:,n]*self.p[n-1]
             zeta_hat = np.exp(-self.d.lambda_precursor[:,n]*self.dt[n-1])*self.zetas[:,n-1] \
-                     + np.exp(alpha*self.dt[n-1]) * self.dt[n-1] * self.G[n-1] \
+                    + np.exp(alpha*self.dt[n-1]) * self.dt[n-1] * self.G[:,n-1] \
                      * (k0(lambda_tilde) - k1(lambda_tilde))
+
 
             # calculate tau_n, Shat_n, S_(n-1)
             tau_n = np.dot(self.d.lambda_precursor[:,n] , omega)
@@ -330,8 +331,6 @@ class Solver:
 
             # evaluate new H, G, rho and zetas
             self.H[n] = self.d.f_fp[n] * self.p[n]
-            self.G[n] = self.d.mgt[0]/self.d.mgt[n] * get1Gbeff(self.d.beff[:,n]) \
-                      * self.p[n] * np.exp(-alpha*self.dt[n-1])
             self.zetas[:,n] = self.p[n] * omega + zeta_hat
             if self.time_dep_precurs:
                 temp= self.d.lambda_precursor[:,n].copy()
