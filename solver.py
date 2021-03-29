@@ -291,7 +291,6 @@ class Solver:
             print("n\tt [s]\tdt   \ta_n  \tl_t  \tz_n  \trho_n\tp_n  ")
 
         for n in range(1,self.t.size):
-            # calculate alpha
             if n > 1:
                 alpha = 1/self.dt[n-2]*np.log(self.p[n-1]/self.p[n-2])
                 gamma = self.dt[n-2]/self.dt[n-1]
@@ -307,6 +306,9 @@ class Solver:
             zeta_hat = np.exp(-self.d.lambda_precursor[:,n]*self.dt[n-1])*self.zetas[:,n-1] \
                     + np.exp(alpha*self.dt[n-1]) * self.dt[n-1] * self.G[:,n-1] \
                      * (k0(lambda_tilde) - k1(lambda_tilde))
+            if self.time_dep_precurs:
+                self.d.lambda_precursor[:, n] = np.dot(zeta_hat, self.d.lambda_precursor[:, 0])\
+                        /zeta_hat.sum()
 
 
             # calculate tau_n, Shat_n, S_(n-1)
@@ -332,10 +334,6 @@ class Solver:
             # evaluate new H, G, rho and zetas
             self.H[n] = self.d.f_fp[n] * self.p[n]
             self.zetas[:,n] = self.p[n] * omega + zeta_hat
-            if self.time_dep_precurs:
-                temp= self.d.lambda_precursor[:,n].copy()
-                self.d.lambda_precursor[:, n] = np.dot(self.zetas[:, n], self.d.lambda_precursor[:, 0])\
-                        /self.zetas[:, n].sum()
 
             # print debug time step info
             if(self.debug):
