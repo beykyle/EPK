@@ -35,7 +35,7 @@ def rho2Dollars(beff : np.array, rho : np.array):
     beff1G = np.zeros(beff.shape[1])
     for i in range(beff.shape[1]):
         beff1G[i] = get1Gbeff(beff[:,i])
-    return np.multiply(rho,  1.0/beff1G)
+    return rho / beff1G
 
 class ConstantKineticsData:
     def __init__(self, mgt=2.6E-5, f_fp=1.0, gamma_D=0, lambda_H=0.0,beff=np.array([0.0076]), lambda_precursor=np.array([0.49405])):
@@ -160,17 +160,16 @@ class PieceWiseReactivityRamp(Reactivity):
             i0  =  find(self.t,self.times[i])
             iff =  find(self.t,self.times[i+1]) + 2
             p[i0:iff] = r.analyticPower1DG(data_1dg, p0, self.t, i0, iff)
-            p0 = p[iff-1]
+            if i!= len(self.reactivities) -1:
+                p0 = p[iff-1]
 
         return p
 
     def getRhoGrid(self):
         rho_grid = np.zeros(self.t.shape)
-        shift = 0
         for i,r in enumerate(self.reactivities):
-            iff =  find(self.t,self.times[i+1]) + 1 + shift
-            i0  =  find(self.t,self.times[i]) + shift
-            shift = shift + 1
+            i0  =  find(self.t,self.times[i])
+            iff =  find(self.t,self.times[i+1]) + 1
             rho_grid[i0:iff] = r.getRhoGrid(self.t[i0:iff])
 
         return rho_grid
@@ -210,7 +209,7 @@ class Solver:
         self.Shat    = np.zeros(self.t.shape)
         self.p       = np.zeros(self.t.shape)
         self.zetas   = np.zeros((self.d.precursor_groups,self.timesteps))
-        self.rho_im  = self.reactivity.rho
+        self.rho_im  = np.copy(self.reactivity.rho)
         self.rho     = self.rho_im
         # set initial conditions
         self.p[0] = 1
@@ -249,7 +248,6 @@ class Solver:
         c = theta*self.dt[n-1]/self.d.mgt[0]*self.Shat[n] + np.exp(alpha*self.dt[n-1])\
                 *((1-theta)*self.dt[n-1]*(temp*self.p[n-1] + self.S[n-1]/self.d.mgt[0]) \
                 + self.p[n-1])
-
         # solve quadratic for new power
         if a < 0:
             det = b**2 - 4*a*c
@@ -282,6 +280,7 @@ class Solver:
         return p, rho
 
     def solve(self, theta, feedback=True):
+        print("Running Solver w/ theta={}".format(theta))
         if feedback:
             step = self.stepPowerFeedback
         else:
