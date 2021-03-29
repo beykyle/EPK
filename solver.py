@@ -200,6 +200,7 @@ class Solver:
         self.d       = d
         self.t       = t
         self.dt = self.t[1:] - self.t[:-1] # time step
+        assert(np.sum(self.dt) == self.t[-1] - self.t[0])
         self.timesteps = self.t.size
         assert(self.t.shape == (self.timesteps,))
         assert(self.t.shape == self.reactivity.t.shape)
@@ -215,7 +216,7 @@ class Solver:
         self.p[0] = 1
         self.H[0] = self.p[0] * self.d.f_fp[0]
         self.G[0] = get1Gbeff(self.d.beff[:,0]) * self.p[0]
-        self.zetas[:,0] = 1.0/ self.d.lambda_precursor[:,0] * self.d.beff[:,0] * self.p[0]
+        self.zetas[:,0] = self.d.beff[:,0] * self.p[0] / self.d.lambda_precursor[:,0]
         if (self.debug):
             print("Data")
             self.d.print_all()
@@ -233,16 +234,17 @@ class Solver:
         lambda_H_tilde = (self.d.lambda_H[n] + alpha)*self.dt[n-1]
         a1 = self.d.f_fp[n]*self.d.gamma_D[n]*self.dt[n-1]*self.k1(lambda_H_tilde)
 
-        rho_d_nm1 = self.rho[n-1] - self.rho_im[n-1]
-        P0 = 1
-        b1 = self.rho_im[n] + np.exp(-lambda_H_hat)*rho_d_nm1 - P0*self.d.gamma_D[n]*self.dt[n-1] \
+        rho_d_n = self.rho[n] - self.rho_im[n]
+        P0 = self.p[0]
+        b1 = self.rho_im[n] + np.exp(-lambda_H_hat)*rho_d_n - P0*self.d.gamma_D[n]*self.dt[n-1] \
                 *self.k0(lambda_H_hat) + np.exp(alpha*self.dt[n-1])*self.d.gamma_D[n]*self.dt[n-1]\
                 *self.d.f_fp[n-1]*self.p[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
 
         # get a,b,c
+        beta_n = get1Gbeff(self.d.beff[:,n])
         beta_nm1 = get1Gbeff(self.d.beff[:,n-1])
         a = theta*self.dt[n-1]*a1 / self.d.mgt[n]
-        temp = (b1 - beta_nm1)/self.d.mgt[n] - alpha
+        temp = (b1 - beta_n)/self.d.mgt[n] - alpha
         b = theta*self.dt[n-1]*(temp  + tau_n / self.d.mgt[0]) - 1
         temp = (self.rho[n-1] - beta_nm1)/self.d.mgt[n-1] - alpha
         c = theta*self.dt[n-1]/self.d.mgt[0]*self.Shat[n] + np.exp(alpha*self.dt[n-1])\
@@ -356,7 +358,7 @@ class Solver:
 class Plotter:
     def __init__(self, time : np.array, xlabel=r"$t$ [s]", ylabel=r"$\frac{p(t)}{p(0)}$ [a.u.]"):
         self.t = time
-        self.fig = plt.figure(figsize=(12, 6))
+        self.fig = plt.figure(figsize=(10, 6))
         self.ax = plt.axes()
 
         self.ax.set_xlabel(xlabel)

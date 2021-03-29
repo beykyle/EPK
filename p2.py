@@ -17,7 +17,7 @@ t = np.linspace(0,6.0001,num=timesteps)
 
 # set up kinetics data
 d = ConstantKineticsData()
-d.mgt = 2.6E-15
+d.mgt = 2.6E-5
 
 # precursor data
 lambda_precursor  = np.array([0.0128, 0.0318, 0.119, 0.3181, 1.4027, 3.9286])
@@ -63,13 +63,19 @@ beta_weighted_data = d.collapseGroups(beta_weighted=True)
 invbeta_weighted_data  = d.collapseGroups(beta_weighted=False)
 
 p = Plotter(t)
-s = Solver(d,t,rho)
-s.solve(0.5)
+s = Solver(d,t,rho, debug=True)
+import pdb
+pdb.run('s.solve(0.5)')
+#s.solve(0.5)
+print(s.p)
+s.debug = False
 p.addData(s.p, label="6G")
-s.reset(d=beta_weighted_data)
+s.resetNewData(beta_weighted_data, t)
 s.solve(0.5)
+print(s.p)
 p.addData(s.p, label=r"1G, $\beta$-weighted")
-s.reset(d=invbeta_weighted_data)
+s.resetNewData(invbeta_weighted_data, t)
 s.solve(0.5)
+print(s.p)
 p.addData(s.p, label=r"1G, $\frac{1}{\beta}$-weighted")
-p.save("6G_asym_ramp.pdf")
+p.save("./results/6G_asym_ramp.pdf")

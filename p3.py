@@ -22,14 +22,14 @@ def interp(qty, t):
 #set up time mesh
 start_time, end_time = parcs_data["Time"].iloc[0], parcs_data["Time"].iloc[-1]
 dt = 0.1e-3
-t = np.arange(start_time, end_time + dt, dt)
-#t = np.linspace(start_time, end_time, 10000)
+#t = np.arange(start_time, end_time + dt, dt)
+t = np.linspace(start_time, end_time, 10000)
 
 #set up precursors
 lambda_precursor = np.array([0.0128, 0.0318, 0.119, 0.3181, 1.4027, 3.9286])
 beff = np.array([0.02584, 0.152, 0.13908, 0.30704, 0.1102, 0.02584])/100
-lambda_precursor = np.average(lambda_precursor, weights = beff)
-beff = beff.sum()
+#lambda_precursor = np.average(lambda_precursor, weights = beff)
+#beff = beff.sum()
 
 #create Data instance
 d = ConstantKineticsData()
@@ -37,12 +37,19 @@ d.beff = beff
 d.lambda_precursor = lambda_precursor
 data = Data.buildFromConstant(d, t)
 data.mgt = interp("Generation-Time", t)
+data.f_fp = interp("Normalization-Factor", t)
 
 #create Rho instance
 rho = ReactivityGrid(t, interp("Reactivity", t))
+rho.rho = rho.rho #np.sum(beff) # convert form $ to reactivity
 
 #create the solver instance
-solver = Solver(data, t, rho)
-solver.solve(0.5)
-plt.plot(solver.t, solver.p, "k.")
-plt.show()
+power_plt = Plotter(t)
+power_plt.addData(interp("Relative-Power",t) , label="PARCS")
+solver = Solver(data, t, rho, debug=True)
+solver.solve(0.5, feedback=True)
+power_plt.addData(solver.p, label="EPK")
+power_plt.save("./results/parcs_d1.pdf")
+
+#plt.legend()
+#plt.show()
