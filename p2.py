@@ -63,19 +63,15 @@ beta_weighted_data = d.collapseGroups(beta_weighted=True)
 invbeta_weighted_data  = d.collapseGroups(beta_weighted=False)
 
 p = Plotter(t)
-s = Solver(d,t,rho, debug=True)
-import pdb
-pdb.run('s.solve(0.5)')
-#s.solve(0.5)
-print(s.p)
-s.debug = False
+s = Solver(d,t,rho)
+#import pdb
+#pdb.run('s.solve(0.5)')
+s.solve(0.5)
 p.addData(s.p, label="6G")
 s.resetNewData(beta_weighted_data, t)
 s.solve(0.5)
-print(s.p)
 p.addData(s.p, label=r"1G, $\beta$-weighted")
 s.resetNewData(invbeta_weighted_data, t)
 s.solve(0.5)
-print(s.p)
 p.addData(s.p, label=r"1G, $\frac{1}{\beta}$-weighted")
 p.save("./results/6G_asym_ramp.pdf")
