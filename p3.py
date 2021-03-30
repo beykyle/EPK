@@ -57,10 +57,12 @@ rho.rho = rho.rho *np.sum(beff) # convert form $ to reactivity
 
 #create the solver instance
 power_plt = Plotter(t)
+rx_plt = Plotter(t, ylabel=r"$\rho$ [\$]")
 power_plt.addData(interp("Relative-Power",t)*1e6 , label="PARCS", logx = True)
+rx_plt.addData(rho.rho, label="PARCS reactivity", logx=True)
+rx_plt.save("./results/d1_rx.pdf")
 solver = Solver(data, t, rho, debug=False)
 solver.solve(0.5, feedback=True)
 power_plt.addData(solver.p*interp("Normalization-Factor", t), label="EPK", logx = True)
-power_plt.save("./results/parcs_d1.pdf")
+power_plt.save("./results/d1_power.pdf")
 
-plt.legend()
