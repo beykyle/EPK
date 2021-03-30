@@ -236,9 +236,9 @@ class Solver:
         lambda_H_tilde = (self.d.lambda_H[n] + alpha)*self.dt[n-1]
         a1 = self.d.f_fp[n]*self.d.gamma_D[n]*self.dt[n-1]*self.k1(lambda_H_tilde)
 
-        rho_d_n = self.rho[n] - self.rho_im[n]
+        rho_d_nm1 = self.rho[n-1] - self.rho_im[n-1]
         P0 = self.p[0]
-        b1 = self.rho_im[n] + np.exp(-lambda_H_hat)*rho_d_n - P0*self.d.gamma_D[n]*self.dt[n-1] \
+        b1 = self.rho_im[n] + np.exp(-lambda_H_hat)*rho_d_nm1 - P0*self.d.gamma_D[n]*self.dt[n-1] \
                 *self.k0(lambda_H_hat) + np.exp(alpha*self.dt[n-1])*self.d.gamma_D[n]*self.dt[n-1]\
                 *self.d.f_fp[n-1]*self.p[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
 
@@ -252,21 +252,23 @@ class Solver:
         c = theta*self.dt[n-1]/self.d.mgt[0]*self.Shat[n] + np.exp(alpha*self.dt[n-1])\
                 *((1-theta)*self.dt[n-1]*(temp*self.p[n-1] + self.S[n-1]/self.d.mgt[0]) \
                 + self.p[n-1])
+
         # solve quadratic for new power
-        if a < 0:
-            det = b**2 - 4*a*c
-            p = (-b - np.sqrt(det))/(2*a)
+        det = b**2 - 4*a*c
+        if (np.isnan(a)): return np.NaN() , np.NaN() # let NaNs propagate
+        assert(a<=0) # catch positive a
+        assert(det>0)
+
+        if a < -1e-14:
+            p = -(b + np.sqrt(det))/(2*a)
         elif a == 0:
-            p = c/(-b)
-        else:
-            det = b**2 - 4*a*c
-            p = (-b * np.sqrt(det))/(2*a)
+            p = -c/b
+
         rho = a1 * p + b1
 
         return p,rho
 
     def stepPower(self, theta : float, alpha : float, tau_n : float, n : int):
-        p = 0
         beff_nm1 = get1Gbeff(self.d.beff[:,n-1])
         beff_n   = get1Gbeff(self.d.beff[:,n])
         num = np.exp(alpha * self.dt[n-1]) \
@@ -329,6 +331,7 @@ class Solver:
                     self.p[n] = pnew
                     self.rho[n] = rhonew
                 else:
+                    alpha = 0
                     self.p[n], self.rho[n] = step(theta, 0, tau_n, n)
             else:
                 self.p[n] = pnew
@@ -366,16 +369,17 @@ class Plotter:
 
 
     def addData(self, data : np.array, label=None, marker="-", alpha=1., log=False):
+        d = np.copy(data)
         if label != None:
             if log:
-                self.ax.loglog(self.t, data, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
+                self.ax.loglog(self.t, d, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
             else:
-                self.ax.plot(self.t, data, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
+                self.ax.plot(self.t, d, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
         else:
             if log:
-                self.ax.loglog(self.t, data, marker, alpha=alpha, linewidth=2.2, markersize=12)
+                self.ax.loglog(self.t, d, marker, alpha=alpha, linewidth=2.2, markersize=12)
             else:
-                self.ax.plot(self.t, data, marker, alpha=alpha, linewidth=2.2, markersize=12)
+                self.ax.plot(self.t, d, marker, alpha=alpha, linewidth=2.2, markersize=12)
 
     def save(self, fname: str):
         print("Saving figure: " + fname)
@@ -384,7 +388,8 @@ class Plotter:
         self.fig.savefig(fname)
 
     def plotReactivityRamp(self, rho : PieceWiseReactivityRamp, beff : np.array, label=None, marker="-", alpha=1.):
-        self.addData( rho2Dollars( beff, rho.rho) , label=label, marker=marker, alpha=alpha)
+        r = np.copy(rho.rho)
+        self.addData( rho2Dollars( beff, r) , label=label, marker=marker, alpha=alpha)
 
 def test():
     aa = np.array([0.01 , 1, 89,  100 ])
