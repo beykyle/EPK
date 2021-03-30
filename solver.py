@@ -131,14 +131,13 @@ class LinearReactivityRamp():
     def analyticPower1DG(self, data_1dg : Data, p0 : float, time : np.array, i0, iff):
         dt = time[i0:iff] - time[i0]
         l   = data_1dg.lambda_precursor[0,i0:iff]
-        if self.rho_dot != 0:
+        if (self.rho_dot != 0):
             beff = data_1dg.beff[0,i0:iff]
             tau = (beff  - self.rho_s)/ self.rho_dot
             C   = beff * l / self.rho_dot + 1
             return p0 * np.exp(- l * dt) * ( tau / ( tau - dt))**(C)
         else:
             return p0 * np.exp(l * self.rho_s * dt/(beff - self.rho_s))
-
 
     def getRhoGrid(self, time : np.array ):
         return self.rho_s + self.rho_dot * (time - time[0])
@@ -164,7 +163,7 @@ class PieceWiseReactivityRamp(Reactivity):
             i0  =  find(self.t,self.times[i])
             iff =  find(self.t,self.times[i+1]) + 2
             p[i0:iff] = r.analyticPower1DG(data_1dg, p0, self.t, i0, iff)
-            if i!= len(self.reactivities) -1:
+            if i != len(self.reactivities) - 1:
                 p0 = p[iff-1]
 
         return p
@@ -172,8 +171,8 @@ class PieceWiseReactivityRamp(Reactivity):
     def getRhoGrid(self):
         rho_grid = np.zeros(self.t.shape)
         for i,r in enumerate(self.reactivities):
-            i0  =  find(self.t,self.times[i])
             iff =  find(self.t,self.times[i+1]) + 1
+            i0  =  find(self.t,self.times[i])
             rho_grid[i0:iff] = r.getRhoGrid(self.t[i0:iff])
 
         return rho_grid
@@ -236,12 +235,12 @@ class Solver:
         lambda_H_tilde = (self.d.lambda_H[n] + alpha)*self.dt[n-1]
         a1 = self.d.f_fp[n]*self.d.gamma_D[n]*self.dt[n-1]*self.k1(lambda_H_tilde)
 
-        rho_d_nm1 = self.rho[n-1] - self.rho_im[n-1]
         rho_d_n = self.rho[n] - self.rho_im[n]
+        rho_d_nm1 = self.rho[n-1] - self.rho_im[n-1]
         P0 = self.p[0]#
         b1 = self.rho_im[n] + np.exp(-lambda_H_hat)*rho_d_nm1 - P0*self.d.gamma_D[n]*self.dt[n-1] \
                 *self.k0(lambda_H_hat) + np.exp(alpha*self.dt[n-1])*self.d.gamma_D[n]*self.dt[n-1]\
-                *self.d.f_fp[n-1]*self.H[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
+                *self.d.f_fp[n-1]*self.p[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
 
         # get a,b,c
         beta_n = get1Gbeff(self.d.beff[:,n])
@@ -251,20 +250,18 @@ class Solver:
         b = theta*self.dt[n-1]*(temp  + tau_n / self.d.mgt[0]) - 1
         temp = (self.rho[n-1] - beta_nm1)/self.d.mgt[n-1] - alpha
         c = theta*self.dt[n-1]/self.d.mgt[0]*self.Shat[n] + np.exp(alpha*self.dt[n-1])\
-                *((1-theta)*self.dt[n-1]*(temp*self.H[n-1] + self.S[n-1]/self.d.mgt[0]) \
-                + self.H[n-1])
+                *((1-theta)*self.dt[n-1]*(temp*self.p[n-1] + self.S[n-1]/self.d.mgt[0]) \
+                + self.p[n-1])
 
         # solve quadratic for new power
-        det = b**2 - 4*a*c
-        #if (np.isnan(a)): return np.NaN , np.NaN # let NaNs propagate
-        #assert(a<=0) # catch positive a
-        #assert(det>0)
-
-        if a < -1e-14:
-            p = -(b + np.sqrt(det))/(2*a)
+        if a < 0:
+            det = b**2 - 4*a*c
+            p = (-b - np.sqrt(det))/(2*a)
         elif a == 0:
-            p = -c/b
-
+            p = c/(-b)
+        else:
+            det = b**2 - 4*a*c
+            p = (-b * np.sqrt(det))/(2*a)
         rho = a1 * p + b1
         #p = p/self.d.f_fp[n]
         #print(p.shape)
@@ -374,19 +371,19 @@ class Plotter:
 
 
     def addData(self, data : np.array, label=None, marker="-", alpha=1., log=False, logx=False):
-        d = np.copy(data)
+        d  = np.copy(data)
         if label != None:
             if log:
-                self.ax.loglog(self.t, data, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
+                self.ax.loglog(self.t, d, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
             if logx:
-                self.ax.semilogx(self.t, data, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
+                self.ax.semilogx(self.t, d, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
             else:
                 self.ax.plot(self.t, d, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
         else:
             if log:
-                self.ax.loglog(self.t, data, marker, alpha=alpha, linewidth=2.2, markersize=12)
+                self.ax.loglog(self.t, d, marker, alpha=alpha, linewidth=2.2, markersize=12)
             if logx:
-                self.ax.semilogx(self.t, data, marker, alpha=alpha, linewidth=2.2, markersize=12)
+                self.ax.semilogx(self.t, d, marker, alpha=alpha, linewidth=2.2, markersize=12)
             else:
                 self.ax.plot(self.t, d, marker, alpha=alpha, linewidth=2.2, markersize=12)
 
@@ -397,8 +394,7 @@ class Plotter:
         self.fig.savefig(fname)
 
     def plotReactivityRamp(self, rho : PieceWiseReactivityRamp, beff : np.array, label=None, marker="-", alpha=1.):
-        r = np.copy(rho.rho)
-        self.addData( rho2Dollars( beff, r) , label=label, marker=marker, alpha=alpha)
+        self.addData( rho2Dollars( beff, rho.rho) , label=label, marker=marker, alpha=alpha)
 
 def test():
     aa = np.array([0.01 , 1, 89,  100 ])

@@ -149,7 +149,6 @@ p.addData(100*np.array(RDM_diff_CN), marker="+", label="Crank-Nicholson")
 p.addData(100*np.array(RDM_diff_IMP), marker="x",label="Implicit")
 #p.addData(np.array(RDM_diff_EXP), marker="gx",label="Explicit", alpha=0.4)
 p.addData(np.ones((len(RDM_diff_CN),))*0.01 , label="0.01% Error")
-p.save("./results/time_step_RDM.pdf")
 
 
 # curve fitting
@@ -160,6 +159,7 @@ popt, pcov = curve_fit(quadratic,dt_ms,pct_error)
 lbl = "{:1.3f}".format(popt[0]) + "[ms$^{-2}$]$(\Delta t)^2$ + "\
         + "{:1.4f}".format(popt[1]) + " [ms$^{-1}$]$\Delta t$"
 p.addData(quadratic(dt_ms, *popt), label=lbl)
+p.save("./results/time_step_RDM.pdf")
 
 # find dt such that pct_err == 0.01%
 c = -0.01
