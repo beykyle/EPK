@@ -131,10 +131,14 @@ class LinearReactivityRamp():
     def analyticPower1DG(self, data_1dg : Data, p0 : float, time : np.array, i0, iff):
         dt = time[i0:iff] - time[i0]
         l   = data_1dg.lambda_precursor[0,i0:iff]
-        beff = data_1dg.beff[0,i0:iff]
-        tau = (beff  - self.rho_s)/ self.rho_dot
-        C   = beff * l / self.rho_dot + 1
-        return p0 * np.exp(- l * dt) * ( tau / ( tau - dt))**(C)
+        if self.rho_dot != 0:
+            beff = data_1dg.beff[0,i0:iff]
+            tau = (beff  - self.rho_s)/ self.rho_dot
+            C   = beff * l / self.rho_dot + 1
+            return p0 * np.exp(- l * dt) * ( tau / ( tau - dt))**(C)
+        else:
+            return p0 * np.exp(l * self.rho_s * dt/(beff - self.rho_s))
+
 
     def getRhoGrid(self, time : np.array ):
         return self.rho_s + self.rho_dot * (time - time[0])
