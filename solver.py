@@ -237,10 +237,11 @@ class Solver:
         a1 = self.d.f_fp[n]*self.d.gamma_D[n]*self.dt[n-1]*self.k1(lambda_H_tilde)
 
         rho_d_nm1 = self.rho[n-1] - self.rho_im[n-1]
-        P0 = self.p[0]
+        rho_d_n = self.rho[n] - self.rho_im[n]
+        P0 = self.p[0]#
         b1 = self.rho_im[n] + np.exp(-lambda_H_hat)*rho_d_nm1 - P0*self.d.gamma_D[n]*self.dt[n-1] \
                 *self.k0(lambda_H_hat) + np.exp(alpha*self.dt[n-1])*self.d.gamma_D[n]*self.dt[n-1]\
-                *self.d.f_fp[n-1]*self.p[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
+                *self.d.f_fp[n-1]*self.H[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
 
         # get a,b,c
         beta_n = get1Gbeff(self.d.beff[:,n])
@@ -250,14 +251,14 @@ class Solver:
         b = theta*self.dt[n-1]*(temp  + tau_n / self.d.mgt[0]) - 1
         temp = (self.rho[n-1] - beta_nm1)/self.d.mgt[n-1] - alpha
         c = theta*self.dt[n-1]/self.d.mgt[0]*self.Shat[n] + np.exp(alpha*self.dt[n-1])\
-                *((1-theta)*self.dt[n-1]*(temp*self.p[n-1] + self.S[n-1]/self.d.mgt[0]) \
-                + self.p[n-1])
+                *((1-theta)*self.dt[n-1]*(temp*self.H[n-1] + self.S[n-1]/self.d.mgt[0]) \
+                + self.H[n-1])
 
         # solve quadratic for new power
         det = b**2 - 4*a*c
-        if (np.isnan(a)): return np.NaN() , np.NaN() # let NaNs propagate
-        assert(a<=0) # catch positive a
-        assert(det>0)
+        #if (np.isnan(a)): return np.NaN , np.NaN # let NaNs propagate
+        #assert(a<=0) # catch positive a
+        #assert(det>0)
 
         if a < -1e-14:
             p = -(b + np.sqrt(det))/(2*a)
@@ -265,7 +266,9 @@ class Solver:
             p = -c/b
 
         rho = a1 * p + b1
-
+        #p = p/self.d.f_fp[n]
+        #print(p.shape)
+        #exit()
         return p,rho
 
     def stepPower(self, theta : float, alpha : float, tau_n : float, n : int):
@@ -296,6 +299,8 @@ class Solver:
             print("n\tt [s]\tdt   \ta_n  \tl_t  \tz_n  \trho_n\tp_n  ")
 
         for n in range(1,self.t.size):
+            if n % 5000 == 0 and self.t.size > 100000:
+                print(n, self.t.size)
             if n > 1:
                 alpha = 1/self.dt[n-2]*np.log(self.p[n-1]/self.p[n-2])
                 gamma = self.dt[n-2]/self.dt[n-1]
@@ -368,16 +373,20 @@ class Plotter:
         self.ax.set_ylabel(ylabel)
 
 
-    def addData(self, data : np.array, label=None, marker="-", alpha=1., log=False):
+    def addData(self, data : np.array, label=None, marker="-", alpha=1., log=False, logx=False):
         d = np.copy(data)
         if label != None:
             if log:
-                self.ax.loglog(self.t, d, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
+                self.ax.loglog(self.t, data, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
+            if logx:
+                self.ax.semilogx(self.t, data, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
             else:
                 self.ax.plot(self.t, d, marker, label=label, alpha=alpha, linewidth=2.2, markersize=12)
         else:
             if log:
-                self.ax.loglog(self.t, d, marker, alpha=alpha, linewidth=2.2, markersize=12)
+                self.ax.loglog(self.t, data, marker, alpha=alpha, linewidth=2.2, markersize=12)
+            if logx:
+                self.ax.semilogx(self.t, data, marker, alpha=alpha, linewidth=2.2, markersize=12)
             else:
                 self.ax.plot(self.t, d, marker, alpha=alpha, linewidth=2.2, markersize=12)
 
