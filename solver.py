@@ -234,10 +234,10 @@ class Solver:
         a1 = self.d.f_fp[n]*self.d.gamma_D[n]*self.dt[n-1]*self.k1(lambda_H_tilde)
 
         rho_d_n = self.rho[n] - self.rho_im[n]
-        P0 = self.H[0]#
+        P0 = self.p[0]#
         b1 = self.rho_im[n] + np.exp(-lambda_H_hat)*rho_d_n - P0*self.d.gamma_D[n]*self.dt[n-1] \
                 *self.k0(lambda_H_hat) + np.exp(alpha*self.dt[n-1])*self.d.gamma_D[n]*self.dt[n-1]\
-                *self.d.f_fp[n-1]*self.H[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
+                *self.d.f_fp[n-1]*self.p[n-1]*(self.k0(lambda_H_tilde)-self.k1(lambda_H_tilde))
 
         # get a,b,c
         beta_n = get1Gbeff(self.d.beff[:,n])
@@ -247,8 +247,8 @@ class Solver:
         b = theta*self.dt[n-1]*(temp  + tau_n / self.d.mgt[0]) - 1
         temp = (self.rho[n-1] - beta_nm1)/self.d.mgt[n-1] - alpha
         c = theta*self.dt[n-1]/self.d.mgt[0]*self.Shat[n] + np.exp(alpha*self.dt[n-1])\
-                *((1-theta)*self.dt[n-1]*(temp*self.H[n-1] + self.S[n-1]/self.d.mgt[0]) \
-                + self.H[n-1])
+                *((1-theta)*self.dt[n-1]*(temp*self.p[n-1] + self.S[n-1]/self.d.mgt[0]) \
+                + self.p[n-1])
 
         # solve quadratic for new power
         if a < 0:
