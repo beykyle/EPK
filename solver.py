@@ -197,12 +197,17 @@ class Solver:
 
         self.reset()
 
-    def resetNewData(self, d, t):
+    def setIniCond(self, p0:float):
+        self.p[0] = p0
+        self.H[0] = self.p[0] * self.d.f_fp[0]
+        self.zetas[:,0] = self.d.beff[:,0] * self.p[0] / self.d.lambda_precursor[:,0]
+
+    def resetNewData(self, d, t, p0=1):
         # initialize arrays for output quantities
         self.d       = d
         self.t       = t
         self.dt = self.t[1:] - self.t[:-1] # time step
-        assert(np.sum(self.dt) == self.t[-1] - self.t[0])
+        #assert(np.sum(self.dt) == self.t[-1] - self.t[0])
         self.timesteps = self.t.size
         assert(self.t.shape == (self.timesteps,))
         assert(self.t.shape == self.reactivity.t.shape)
@@ -215,9 +220,7 @@ class Solver:
         self.rho_im  = np.copy(self.reactivity.rho)
         self.rho     = self.rho_im
         # set initial conditions
-        self.p[0] = 1
-        self.H[0] = self.p[0] * self.d.f_fp[0]
-        self.zetas[:,0] = self.d.beff[:,0] * self.p[0] / self.d.lambda_precursor[:,0]
+        self.setIniCond(p0)
         if (self.debug):
             print("Data")
             self.d.print_all()
@@ -254,14 +257,13 @@ class Solver:
                 + self.p[n-1])
 
         # solve quadratic for new power
-        if a < 0:
-            det = b**2 - 4*a*c
-            p = (-b - np.sqrt(det))/(2*a)
-        elif a == 0:
-            p = c/(-b)
-        else:
-            det = b**2 - 4*a*c
-            p = (-b * np.sqrt(det))/(2*a)
+        det = b**2 - 4*a*c
+        assert(a<=0)
+        assert(det>0)
+        if np.isclose(a,0):
+            p = -c/b
+        elif a < 0:
+            p = -(b + np.sqrt(det))/(2*a)
         rho = a1 * p + b1
         #p = p/self.d.f_fp[n]
         #print(p.shape)
@@ -296,9 +298,11 @@ class Solver:
             print("n\tt [s]\tdt   \ta_n  \tl_t  \tz_n  \trho_n\tp_n  ")
 
         for n in range(1,self.t.size):
+
             if n % 5000 == 0 and self.t.size > 100000:
                 print(n, self.t.size)
-            if n > 1:
+
+            if (n > 1) and (not np.isclose(self.p[n-2],0.) ):
                 alpha = 1/self.dt[n-2]*np.log(self.p[n-1]/self.p[n-2])
                 gamma = self.dt[n-2]/self.dt[n-1]
             else:
